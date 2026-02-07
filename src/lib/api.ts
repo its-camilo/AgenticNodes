@@ -1,16 +1,13 @@
 import type { SimulationRequest, SimulationResponse, NegotiateRequest, NegotiateResponse } from "@/types/simulation";
 
-const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
+const API_URL = import.meta.env.VITE_API_URL || "https://ladonna-isotheral-accustomedly.ngrok-free.dev";
 
 const HEADERS = {
   "Content-Type": "application/json",
   "ngrok-skip-browser-warning": "true",
 };
 
-export async function runSimulation(
-  request: SimulationRequest,
-  signal: AbortSignal
-): Promise<SimulationResponse> {
+export async function runSimulation(request: SimulationRequest, signal: AbortSignal): Promise<SimulationResponse> {
   const res = await fetch(`${API_URL}/process-intent`, {
     method: "POST",
     headers: HEADERS,
@@ -24,10 +21,7 @@ export async function runSimulation(
   return res.json();
 }
 
-export async function negotiate(
-  traceId: string,
-  request: NegotiateRequest
-): Promise<NegotiateResponse> {
+export async function negotiate(traceId: string, request: NegotiateRequest): Promise<NegotiateResponse> {
   const res = await fetch(`${API_URL}/process-intent/${traceId}/negotiate`, {
     method: "POST",
     headers: HEADERS,
