@@ -1,6 +1,6 @@
 import type { SimulationRequest, SimulationResponse, NegotiateRequest, NegotiateResponse } from "@/types/simulation";
 
-const API_URL = import.meta.env.VITE_API_URL || "https://ladonna-isotheral-accustomedly.ngrok-free.dev";
+const API_URL = import.meta.env.VITE_API_URL || "https:\ladonna-isotheral-accustomedly.ngrok-free.dev";
 
 const HEADERS = {
   "Content-Type": "application/json",
