@@ -4,7 +4,7 @@ const PHASE_LABELS: Record<string, string> = {
   generating_world: "Generating World",
   discovering_suppliers: "Discovering Suppliers",
   planning_routes: "Planning Routes",
-  negotiating: "Negotiating",
+  awaiting_negotiation: "Awaiting Negotiation",
   complete: "Complete",
 };
 
@@ -51,126 +51,48 @@ const LoadingView = ({ currentPhase, phaseMessage }: LoadingViewProps) => {
       {/* Animated SVG World Map */}
       <div className="w-full max-w-3xl">
         <svg viewBox="0 0 800 400" className="w-full h-auto">
-          {/* Ocean background */}
-          <rect width="800" height="400" fill="hsl(220, 25%, 8%)" rx="12" />
-          
-          {/* Grid lines */}
+          <rect width="800" height="400" fill="#0a1628" rx="12" />
           {Array.from({ length: 9 }).map((_, i) => (
-            <line
-              key={`h${i}`}
-              x1="0" y1={i * 50}
-              x2="800" y2={i * 50}
-              stroke="hsl(215, 20%, 15%)"
-              strokeWidth="0.5"
-            />
+            <line key={`h${i}`} x1="0" y1={i * 50} x2="800" y2={i * 50} stroke="#1a2540" strokeWidth="0.5" />
           ))}
           {Array.from({ length: 17 }).map((_, i) => (
-            <line
-              key={`v${i}`}
-              x1={i * 50} y1="0"
-              x2={i * 50} y2="400"
-              stroke="hsl(215, 20%, 15%)"
-              strokeWidth="0.5"
-            />
+            <line key={`v${i}`} x1={i * 50} y1="0" x2={i * 50} y2="400" stroke="#1a2540" strokeWidth="0.5" />
           ))}
 
-          {/* Simplified continent shapes */}
-          {/* North America */}
-          <path
-            d="M120,80 L180,60 L220,80 L230,120 L210,160 L200,200 L180,220 L150,200 L130,170 L110,130 Z"
-            fill="hsl(215, 25%, 18%)"
-            stroke="hsl(190, 70%, 50%)"
-            strokeWidth="0.5"
-            opacity="0.6"
-          />
-          {/* South America */}
-          <path
-            d="M190,230 L220,220 L240,250 L250,300 L230,340 L210,360 L190,340 L180,300 L175,260 Z"
-            fill="hsl(215, 25%, 18%)"
-            stroke="hsl(190, 70%, 50%)"
-            strokeWidth="0.5"
-            opacity="0.6"
-          />
-          {/* Europe */}
-          <path
-            d="M370,70 L420,60 L440,80 L430,110 L410,130 L380,120 L360,100 Z"
-            fill="hsl(215, 25%, 18%)"
-            stroke="hsl(190, 70%, 50%)"
-            strokeWidth="0.5"
-            opacity="0.6"
-          />
-          {/* Africa */}
-          <path
-            d="M380,150 L430,140 L450,180 L460,230 L440,290 L420,320 L390,300 L370,260 L360,200 Z"
-            fill="hsl(215, 25%, 18%)"
-            stroke="hsl(190, 70%, 50%)"
-            strokeWidth="0.5"
-            opacity="0.6"
-          />
-          {/* Asia */}
-          <path
-            d="M450,60 L550,50 L650,70 L700,100 L680,140 L640,160 L580,170 L520,150 L480,130 L450,100 Z"
-            fill="hsl(215, 25%, 18%)"
-            stroke="hsl(190, 70%, 50%)"
-            strokeWidth="0.5"
-            opacity="0.6"
-          />
-          {/* Australia */}
-          <path
-            d="M620,260 L680,250 L710,280 L700,310 L660,320 L630,300 Z"
-            fill="hsl(215, 25%, 18%)"
-            stroke="hsl(190, 70%, 50%)"
-            strokeWidth="0.5"
-            opacity="0.6"
-          />
+          {/* Simplified continents */}
+          <path d="M120,80 L180,60 L220,80 L230,120 L210,160 L200,200 L180,220 L150,200 L130,170 L110,130 Z" fill="#1a2540" stroke="#2a3a5c" strokeWidth="0.5" opacity="0.6" />
+          <path d="M190,230 L220,220 L240,250 L250,300 L230,340 L210,360 L190,340 L180,300 L175,260 Z" fill="#1a2540" stroke="#2a3a5c" strokeWidth="0.5" opacity="0.6" />
+          <path d="M370,70 L420,60 L440,80 L430,110 L410,130 L380,120 L360,100 Z" fill="#1a2540" stroke="#2a3a5c" strokeWidth="0.5" opacity="0.6" />
+          <path d="M380,150 L430,140 L450,180 L460,230 L440,290 L420,320 L390,300 L370,260 L360,200 Z" fill="#1a2540" stroke="#2a3a5c" strokeWidth="0.5" opacity="0.6" />
+          <path d="M450,60 L550,50 L650,70 L700,100 L680,140 L640,160 L580,170 L520,150 L480,130 L450,100 Z" fill="#1a2540" stroke="#2a3a5c" strokeWidth="0.5" opacity="0.6" />
+          <path d="M620,260 L680,250 L710,280 L700,310 L660,320 L630,300 Z" fill="#1a2540" stroke="#2a3a5c" strokeWidth="0.5" opacity="0.6" />
 
           {/* Animated route lines */}
           {phaseIndex >= 2 && (
             <>
-              <line
-                x1="200" y1="150" x2="600" y2="130"
-                stroke="hsl(190, 70%, 50%)"
-                strokeWidth="2"
-                strokeDasharray="6 4"
-                className="animate-dash"
-                opacity="0.8"
-              />
-              <line
-                x1="200" y1="150" x2="420" y2="200"
-                stroke="hsl(175, 60%, 40%)"
-                strokeWidth="2"
-                strokeDasharray="6 4"
-                className="animate-dash"
-                opacity="0.8"
-              />
-              <line
-                x1="600" y1="130" x2="420" y2="200"
-                stroke="hsl(45, 80%, 55%)"
-                strokeWidth="2"
-                strokeDasharray="6 4"
-                className="animate-dash"
-                opacity="0.6"
-              />
+              <line x1="200" y1="150" x2="600" y2="130" stroke="hsl(130, 50%, 45%)" strokeWidth="2" strokeDasharray="6 4" className="animate-dash" opacity="0.8" />
+              <line x1="200" y1="150" x2="420" y2="200" stroke="hsl(45, 80%, 55%)" strokeWidth="2" strokeDasharray="6 4" className="animate-dash" opacity="0.8" />
+              <line x1="600" y1="130" x2="420" y2="200" stroke="hsl(0, 70%, 50%)" strokeWidth="2" strokeDasharray="6 4" className="animate-dash" opacity="0.6" />
             </>
           )}
 
-          {/* Buyer pin (pulsing) */}
+          {/* Buyer pin */}
           <circle cx="200" cy="150" r="6" fill="hsl(190, 70%, 50%)" className="animate-pulse-glow" />
           <circle cx="200" cy="150" r="3" fill="hsl(200, 20%, 92%)" />
 
           {/* Supplier pins */}
           {phaseIndex >= 1 && (
             <>
-              <circle cx="600" cy="130" r="5" fill="hsl(175, 60%, 40%)" opacity="0.9" />
+              <circle cx="600" cy="130" r="5" fill="hsl(130, 50%, 45%)" opacity="0.9" />
               <circle cx="600" cy="130" r="2.5" fill="hsl(200, 20%, 92%)" />
-              <circle cx="650" cy="100" r="5" fill="hsl(175, 60%, 40%)" opacity="0.9" />
+              <circle cx="650" cy="100" r="5" fill="hsl(130, 50%, 45%)" opacity="0.9" />
               <circle cx="650" cy="100" r="2.5" fill="hsl(200, 20%, 92%)" />
-              <circle cx="220" cy="280" r="5" fill="hsl(175, 60%, 40%)" opacity="0.9" />
+              <circle cx="220" cy="280" r="5" fill="hsl(130, 50%, 45%)" opacity="0.9" />
               <circle cx="220" cy="280" r="2.5" fill="hsl(200, 20%, 92%)" />
             </>
           )}
 
-          {/* Ship icons on routes */}
+          {/* Ships */}
           {phaseIndex >= 2 && (
             <>
               <text x="400" y="135" fontSize="16" textAnchor="middle" className="animate-pulse">🚢</text>

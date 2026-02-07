@@ -12,6 +12,7 @@ const Index = () => {
   const [currentPhase, setCurrentPhase] = useState("");
   const [phaseMessage, setPhaseMessage] = useState("");
   const [result, setResult] = useState<SimulationResponse | null>(null);
+  const [negotiationMode, setNegotiationMode] = useState(false);
   const sseRef = useRef<EventSourcePolyfill | null>(null);
 
   const closeSse = useCallback(() => {
@@ -26,6 +27,7 @@ const Index = () => {
       setView("loading");
       setCurrentPhase("");
       setPhaseMessage("Connecting...");
+      setNegotiationMode(false);
 
       // 1. Connect SSE FIRST
       const sse = new EventSourcePolyfill(getEventsUrl(), {
@@ -38,6 +40,16 @@ const Index = () => {
           const data = JSON.parse(event.data);
           setCurrentPhase(data.phase);
           setPhaseMessage(data.message);
+        } catch {}
+      });
+
+      // Listen for negotiation_ready event
+      sse.addEventListener("negotiation_ready", (event: any) => {
+        try {
+          const _data = JSON.parse(event.data);
+          // The negotiation data will be in the final response; 
+          // this event signals we should enter negotiation mode
+          setNegotiationMode(true);
         } catch {}
       });
 
@@ -77,6 +89,11 @@ const Index = () => {
     setResult(null);
     setCurrentPhase("");
     setPhaseMessage("");
+    setNegotiationMode(false);
+  }, []);
+
+  const handleFinalizeNegotiation = useCallback(() => {
+    setNegotiationMode(false);
   }, []);
 
   if (view === "loading") {
@@ -84,7 +101,14 @@ const Index = () => {
   }
 
   if (view === "results" && result) {
-    return <ResultsDashboard data={result} onReset={handleReset} />;
+    return (
+      <ResultsDashboard
+        data={result}
+        onReset={handleReset}
+        negotiationMode={negotiationMode}
+        onFinalizeNegotiation={handleFinalizeNegotiation}
+      />
+    );
   }
 
   return <IntentInput onSubmit={handleSubmit} isLoading={false} />;
