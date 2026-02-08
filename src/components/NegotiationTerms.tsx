@@ -23,6 +23,7 @@ const NegotiationTerms = ({ terms, totalCost, executionPlan }: NegotiationTermsP
           <TableHeader>
             <TableRow className="bg-secondary/50">
               <TableHead className="text-xs">Material</TableHead>
+              <TableHead className="text-xs">Supplier</TableHead>
               <TableHead className="text-xs">Qty</TableHead>
               <TableHead className="text-xs">Unit Price</TableHead>
               <TableHead className="text-xs">Subtotal</TableHead>
@@ -33,6 +34,7 @@ const NegotiationTerms = ({ terms, totalCost, executionPlan }: NegotiationTermsP
             {(terms ?? []).map((t, i) => (
               <TableRow key={i}>
                 <TableCell className="text-xs font-medium">{t.material}</TableCell>
+                <TableCell className="text-xs">{t.supplier_id}</TableCell>
                 <TableCell className="text-xs">{t.qty.toLocaleString()}</TableCell>
                 <TableCell className="text-xs">
                   {t.currency} {t.unit_price_est.toFixed(2)}
@@ -64,6 +66,20 @@ const NegotiationTerms = ({ terms, totalCost, executionPlan }: NegotiationTermsP
           </p>
         </div>
       </div>
+
+      {executionPlan.steps && executionPlan.steps.length > 0 && (
+        <div className="space-y-2">
+          <h4 className="text-sm font-semibold text-foreground">Execution Plan</h4>
+          <ol className="space-y-1">
+            {executionPlan.steps.map((s, i) => (
+              <li key={i} className="text-xs text-muted-foreground flex gap-2">
+                <span className="text-primary font-medium shrink-0">{i + 1}.</span>
+                <span>{s.step}{s.description ? ` — ${s.description}` : ""}</span>
+              </li>
+            ))}
+          </ol>
+        </div>
+      )}
     </div>
   );
 };
