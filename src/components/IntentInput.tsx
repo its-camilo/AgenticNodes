@@ -51,7 +51,7 @@ const IntentInput = ({ onSubmit, isLoading }: IntentInputProps) => {
               className="min-h-[140px] resize-none bg-secondary/50 text-foreground placeholder:text-muted-foreground"
             />
             {intent.length > 1900 && (
-              <p className="text-xs text-muted-foreground text-right">
+              <p className="text-xs text-muted-foreground text-right" aria-live="polite">
                 {intent.length}/2000
               </p>
             )}

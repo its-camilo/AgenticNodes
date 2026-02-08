@@ -56,11 +56,6 @@ const Index = () => {
         } catch {}
       });
 
-      // Listen for graph_update event (optional: update agent graph)
-      sse.addEventListener("graph_update", (_event: any) => {
-        // Graph updates are available for visualization if needed
-      });
-
       // Listen for negotiation_update event (optional: update terms in real-time)
       sse.addEventListener("negotiation_update", (event: any) => {
         try {
