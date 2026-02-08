@@ -28,7 +28,7 @@ const IntentInput = ({ onSubmit, isLoading }: IntentInputProps) => {
           <div className="flex items-center justify-center gap-3 mb-2">
             <Ship className="h-8 w-8 text-primary" />
             <h1 className="text-4xl font-bold tracking-tight text-foreground">
-              Supply Chain AI
+              Agentic Nodes
             </h1>
             <Anchor className="h-8 w-8 text-accent" />
           </div>
