@@ -1,26 +1,31 @@
-import { useState, useMemo } from "react";
+import { useMemo, useState } from "react";
 import {
-  ComposableMap,
-  Geographies,
-  Geography,
+  MapContainer,
+  TileLayer,
   Marker,
-  Line,
-  ZoomableGroup,
-} from "react-simple-maps";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
-import { Button } from "@/components/ui/button";
-import { Plus, Minus } from "lucide-react";
+  Polyline,
+  Tooltip as LeafletTooltip,
+  Popup,
+  useMap,
+} from "react-leaflet";
+import L from "leaflet";
 import MapPortPanel from "@/components/MapPortPanel";
 import MapSupplierPanel from "@/components/MapSupplierPanel";
 import MapRoutePopup from "@/components/MapRoutePopup";
 import type { SimulationReport, PortPin, SupplierPin, RouteLine } from "@/types/simulation";
 
-const GEO_URL = "https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json";
+// Fix default marker icon issue in Leaflet + bundlers
+import markerIcon2x from "leaflet/dist/images/marker-icon-2x.png";
+import markerIcon from "leaflet/dist/images/marker-icon.png";
+import markerShadow from "leaflet/dist/images/marker-shadow.png";
+
+// @ts-ignore
+delete (L.Icon.Default.prototype as any)._getIconUrl;
+L.Icon.Default.mergeOptions({
+  iconRetinaUrl: markerIcon2x,
+  iconUrl: markerIcon,
+  shadowUrl: markerShadow,
+});
 
 interface RouteMapProps {
   report: SimulationReport;
@@ -35,178 +40,164 @@ const riskColor = (level: string) =>
 
 const trustDotColor = (score: number) =>
   score > 75
-    ? "hsl(130, 50%, 45%)"
+    ? "#2d8a4e"
     : score > 50
-    ? "hsl(45, 80%, 55%)"
-    : "hsl(0, 70%, 50%)";
+    ? "#c9a832"
+    : "#c94040";
+
+// Custom div icons
+const buyerIcon = L.divIcon({
+  className: "",
+  html: `<div style="width:20px;height:20px;border-radius:50%;background:hsl(190,70%,50%);border:3px solid hsl(200,20%,92%);box-shadow:0 0 12px hsl(190,70%,50%);animation:pulse-glow 2s ease-in-out infinite"></div>`,
+  iconSize: [20, 20],
+  iconAnchor: [10, 10],
+});
+
+const portIcon = L.divIcon({
+  className: "",
+  html: `<div style="width:12px;height:12px;border-radius:50%;background:hsl(210,60%,60%);border:2px solid hsl(200,20%,92%)"></div>`,
+  iconSize: [12, 12],
+  iconAnchor: [6, 6],
+});
+
+const makeSupplierIcon = (score: number) =>
+  L.divIcon({
+    className: "",
+    html: `<div style="width:10px;height:10px;border-radius:50%;background:${trustDotColor(score)};border:2px solid hsl(200,20%,92%)"></div>`,
+    iconSize: [10, 10],
+    iconAnchor: [5, 5],
+  });
+
+/** Convert route polyline from [[lng,lat],...] to [[lat,lng],...] for Leaflet */
+const toLeafletPositions = (route: RouteLine): L.LatLngExpression[] => {
+  if (route.polyline && route.polyline.length > 0) {
+    return route.polyline.map((p) => [p[1], p[0]] as [number, number]);
+  }
+  // Fallback: build from from_coords -> waypoints -> to_coords
+  const pts: L.LatLngExpression[] = [];
+  if (route.from_coords?.lat != null) pts.push([route.from_coords.lat, route.from_coords.lng]);
+  route.waypoints?.forEach((w) => { if (w?.lat != null) pts.push([w.lat, w.lng]); });
+  if (route.to_coords?.lat != null) pts.push([route.to_coords.lat, route.to_coords.lng]);
+  return pts;
+};
+
+/** Auto-fit map bounds to all pins */
+const FitBounds = ({ bounds }: { bounds: L.LatLngBoundsExpression | null }) => {
+  const map = useMap();
+  useMemo(() => {
+    if (bounds) map.fitBounds(bounds, { padding: [40, 40], maxZoom: 6 });
+  }, [bounds, map]);
+  return null;
+};
 
 const RouteMap = ({ report }: RouteMapProps) => {
   const mapData = report.map_data;
-  const [zoom, setZoom] = useState(1);
   const [selectedPort, setSelectedPort] = useState<PortPin | null>(null);
   const [selectedSupplier, setSelectedSupplier] = useState<SupplierPin | null>(null);
   const [selectedRoute, setSelectedRoute] = useState<RouteLine | null>(null);
 
-  // Compute center from all pins
-  const center = useMemo(() => {
-    if (!mapData) return [20, 20] as [number, number];
-    const lats: number[] = [];
-    const lngs: number[] = [];
-    lats.push(mapData.buyer_pin.lat);
-    lngs.push(mapData.buyer_pin.lng);
-    mapData.port_pins.forEach((p) => { lats.push(p.lat); lngs.push(p.lng); });
-    mapData.supplier_pins.forEach((s) => { lats.push(s.lat); lngs.push(s.lng); });
-    const avgLat = lats.reduce((a, b) => a + b, 0) / lats.length;
-    const avgLng = lngs.reduce((a, b) => a + b, 0) / lngs.length;
-    return [avgLng, avgLat] as [number, number];
+  // Compute bounds
+  const bounds = useMemo(() => {
+    if (!mapData) return null;
+    const pts: [number, number][] = [];
+    if (mapData.buyer_pin?.lat != null) pts.push([mapData.buyer_pin.lat, mapData.buyer_pin.lng]);
+    mapData.port_pins?.forEach((p) => { if (p?.lat != null) pts.push([p.lat, p.lng]); });
+    mapData.supplier_pins?.forEach((s) => { if (s?.lat != null) pts.push([s.lat, s.lng]); });
+    if (pts.length === 0) return null;
+    return L.latLngBounds(pts);
   }, [mapData]);
 
-  // Fallback to old rendering if no map_data
   if (!mapData) {
     return <FallbackMap report={report} />;
   }
 
   return (
-    <div className="rounded-lg border bg-card overflow-hidden relative">
-      {/* Zoom controls */}
-      <div className="absolute top-2 right-2 z-10 flex flex-col gap-1">
-        <Button variant="secondary" size="icon" className="h-7 w-7" onClick={() => setZoom((z) => Math.min(z * 1.5, 8))}>
-          <Plus className="h-3 w-3" />
-        </Button>
-        <Button variant="secondary" size="icon" className="h-7 w-7" onClick={() => setZoom((z) => Math.max(z / 1.5, 1))}>
-          <Minus className="h-3 w-3" />
-        </Button>
-      </div>
-
+    <div className="rounded-lg border bg-card overflow-hidden relative" style={{ height: 500 }}>
       {/* Legend */}
-      <div className="absolute bottom-2 left-2 z-10 bg-card/90 rounded p-2 text-[10px] space-y-1 border">
-        <div className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-[hsl(190,70%,50%)] inline-block" /> Buyer</div>
-        <div className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-[hsl(210,60%,60%)] inline-block" /> Port</div>
-        <div className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-[hsl(130,50%,45%)] inline-block" /> Supplier (high trust)</div>
-        <div className="flex items-center gap-1.5"><span className="w-2 h-0.5 bg-[hsl(130,50%,45%)] inline-block" /> Low risk</div>
-        <div className="flex items-center gap-1.5"><span className="w-2 h-0.5 bg-[hsl(45,80%,55%)] inline-block" /> Medium risk</div>
-        <div className="flex items-center gap-1.5"><span className="w-2 h-0.5 bg-[hsl(0,70%,50%)] inline-block" /> High risk</div>
+      <div className="absolute bottom-2 left-2 z-[1000] bg-card/90 rounded p-2 text-[10px] space-y-1 border pointer-events-none">
+        <div className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full inline-block" style={{ background: "hsl(190,70%,50%)" }} /> Buyer</div>
+        <div className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full inline-block" style={{ background: "hsl(210,60%,60%)" }} /> Port</div>
+        <div className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full inline-block" style={{ background: "#2d8a4e" }} /> Supplier (high trust)</div>
+        <div className="flex items-center gap-1.5"><span className="w-2 h-0.5 inline-block" style={{ background: "hsl(130,50%,45%)" }} /> Low risk</div>
+        <div className="flex items-center gap-1.5"><span className="w-2 h-0.5 inline-block" style={{ background: "hsl(45,80%,55%)" }} /> Medium risk</div>
+        <div className="flex items-center gap-1.5"><span className="w-2 h-0.5 inline-block" style={{ background: "hsl(0,70%,50%)" }} /> High risk</div>
       </div>
 
-      <TooltipProvider delayDuration={0}>
-        <ComposableMap
-          projection="geoNaturalEarth1"
-          projectionConfig={{ scale: 140 }}
-          style={{ width: "100%", height: "auto" }}
-        >
-          <ZoomableGroup zoom={zoom} center={center}>
-            <Geographies geography={GEO_URL}>
-              {({ geographies }) =>
-                geographies.map((geo) => (
-                  <Geography
-                    key={geo.rsSVGPath}
-                    geography={geo}
-                    fill="#1a2540"
-                    stroke="#2a3a5c"
-                    strokeWidth={0.5}
-                    style={{
-                      default: { outline: "none" },
-                      hover: { fill: "#1f2d4a", outline: "none" },
-                      pressed: { outline: "none" },
-                    }}
-                  />
-                ))
-              }
-            </Geographies>
+      <MapContainer
+        center={[20, 0]}
+        zoom={2}
+        scrollWheelZoom={true}
+        zoomControl={true}
+        style={{ height: "100%", width: "100%" }}
+        className="rounded-lg"
+      >
+        <TileLayer
+          url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
+          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/">CARTO</a>'
+        />
+        <FitBounds bounds={bounds} />
 
-            {/* Route lines with waypoints */}
-            {mapData.route_lines.map((route) => {
-              const points: [number, number][] = [
-                [route.from_coords.lng, route.from_coords.lat],
-                ...route.waypoints.map((w) => [w.lng, w.lat] as [number, number]),
-                [route.to_coords.lng, route.to_coords.lat],
-              ];
-              const color = riskColor(route.risk_level);
+        {/* Route polylines */}
+        {mapData.route_lines?.map((route) => {
+          const positions = toLeafletPositions(route);
+          if (positions.length < 2) return null;
+          return (
+            <Polyline
+              key={route.id}
+              positions={positions}
+              pathOptions={{
+                color: riskColor(route.risk_level),
+                weight: 3,
+                dashArray: "10 6",
+              }}
+              eventHandlers={{ click: () => setSelectedRoute(route) }}
+            />
+          );
+        })}
 
-              return points.slice(0, -1).map((from, i) => (
-                <Line
-                  key={`${route.id}-${i}`}
-                  from={from}
-                  to={points[i + 1]}
-                  stroke={color}
-                  strokeWidth={2}
-                  strokeDasharray="5 3"
-                  strokeLinecap="round"
-                  className="animate-dash cursor-pointer"
-                  onClick={() => setSelectedRoute(route)}
-                />
-              ));
-            })}
-
-            {/* Ship icons on routes */}
-            {mapData.route_lines.map((route) => {
-              // Place ship at midpoint of route
-              const midLat = (route.from_coords.lat + route.to_coords.lat) / 2;
-              const midLng = (route.from_coords.lng + route.to_coords.lng) / 2;
-              return (
-                <Marker
-                  key={`ship-${route.id}`}
-                  coordinates={[midLng, midLat]}
-                  onClick={() => setSelectedRoute(route)}
-                  style={{ cursor: "pointer" }}
-                >
-                  <text
-                    textAnchor="middle"
-                    fontSize={12}
-                    className="animate-pulse select-none"
-                    style={{ pointerEvents: "all" }}
-                  >
-                    🚢
-                  </text>
-                </Marker>
-              );
-            })}
-
-            {/* Port pins */}
-            {mapData.port_pins.map((port) => (
-              <Tooltip key={port.id}>
-                <TooltipTrigger asChild>
-                  <Marker
-                    coordinates={[port.lng, port.lat]}
-                    onClick={() => setSelectedPort(port)}
-                    style={{ cursor: "pointer" }}
-                  >
-                    <circle r={4} fill="hsl(210, 60%, 60%)" stroke="hsl(200, 20%, 92%)" strokeWidth={0.5} />
-                  </Marker>
-                </TooltipTrigger>
-                <TooltipContent side="top" className="text-xs">
-                  {port.name}
-                </TooltipContent>
-              </Tooltip>
-            ))}
-
-            {/* Supplier pins */}
-            {mapData.supplier_pins.map((s) => (
-              <Marker
-                key={s.id}
-                coordinates={[s.lng, s.lat]}
-                onClick={() => setSelectedSupplier(s)}
-                style={{ cursor: "pointer" }}
-              >
-                <circle r={3.5} fill={trustDotColor(s.trust_score)} stroke="hsl(200, 20%, 92%)" strokeWidth={0.5} />
-              </Marker>
-            ))}
-
-            {/* Buyer pin */}
-            <Marker coordinates={[mapData.buyer_pin.lng, mapData.buyer_pin.lat]}>
-              <circle r={7} fill="hsl(190, 70%, 50%)" className="animate-pulse-glow" />
-              <circle r={3.5} fill="hsl(200, 20%, 92%)" />
-              <text
-                textAnchor="middle"
-                y={-14}
-                style={{ fontSize: 9, fill: "hsl(190, 70%, 50%)", fontWeight: 600 }}
-              >
-                {mapData.buyer_pin.label || "Buyer"}
-              </text>
+        {/* Port markers */}
+        {mapData.port_pins?.map((port) => {
+          if (!port?.lat || !port?.lng) return null;
+          return (
+            <Marker
+              key={port.id}
+              position={[port.lat, port.lng]}
+              icon={portIcon}
+              eventHandlers={{ click: () => setSelectedPort(port) }}
+            >
+              <LeafletTooltip direction="top" offset={[0, -8]}>
+                <span className="text-xs font-medium">{port.name}</span>
+              </LeafletTooltip>
             </Marker>
-          </ZoomableGroup>
-        </ComposableMap>
-      </TooltipProvider>
+          );
+        })}
+
+        {/* Supplier markers */}
+        {mapData.supplier_pins?.map((s) => {
+          if (!s?.lat || !s?.lng) return null;
+          return (
+            <Marker
+              key={s.id}
+              position={[s.lat, s.lng]}
+              icon={makeSupplierIcon(s.trust_score)}
+              eventHandlers={{ click: () => setSelectedSupplier(s) }}
+            >
+              <LeafletTooltip direction="top" offset={[0, -8]}>
+                <span className="text-xs">{s.name} — {s.material}</span>
+              </LeafletTooltip>
+            </Marker>
+          );
+        })}
+
+        {/* Buyer marker */}
+        {mapData.buyer_pin?.lat != null && (
+          <Marker position={[mapData.buyer_pin.lat, mapData.buyer_pin.lng]} icon={buyerIcon}>
+            <LeafletTooltip direction="top" offset={[0, -12]} permanent>
+              <span className="text-xs font-semibold">{mapData.buyer_pin.label || "Buyer"}</span>
+            </LeafletTooltip>
+          </Marker>
+        )}
+      </MapContainer>
 
       <MapPortPanel port={selectedPort} open={!!selectedPort} onClose={() => setSelectedPort(null)} />
       <MapSupplierPanel supplier={selectedSupplier} open={!!selectedSupplier} onClose={() => setSelectedSupplier(null)} />
@@ -218,66 +209,55 @@ const RouteMap = ({ report }: RouteMapProps) => {
 // Fallback for when map_data isn't available (legacy response)
 const FallbackMap = ({ report }: { report: SimulationReport }) => {
   const { world_context, discovery_paths, routes } = report;
-  const buyer = world_context.buyer_coordinates;
+  const buyer = world_context?.buyer_coordinates;
   const portMap = new Map<string, { lat: number; lng: number }>();
-  world_context.countries.forEach((c) =>
-    c.ports.forEach((p) => portMap.set(p.name, { lat: p.lat, lng: p.lng }))
+  world_context?.countries?.forEach((c) =>
+    c.ports?.forEach((p) => portMap.set(p.name, { lat: p.lat, lng: p.lng }))
   );
 
   const legacyRiskColor = (score: number) =>
     score < 0.3 ? "hsl(130, 50%, 45%)" : score < 0.6 ? "hsl(45, 80%, 55%)" : "hsl(0, 70%, 50%)";
 
+  const routePolylines = (routes || []).map((route, i) => {
+    const fromPort = route.ports?.[0] ? portMap.get(route.ports[0]) : null;
+    const toPort = route.ports?.[route.ports.length - 1] ? portMap.get(route.ports[route.ports.length - 1]) : null;
+    if (!fromPort?.lat || !toPort?.lat) return null;
+    return (
+      <Polyline
+        key={i}
+        positions={[[fromPort.lat, fromPort.lng], [toPort.lat, toPort.lng]]}
+        pathOptions={{ color: legacyRiskColor(route.risk_score), weight: 2, dashArray: "4 3" }}
+      />
+    );
+  });
+
   return (
-    <div className="rounded-lg border bg-card overflow-hidden">
-      <ComposableMap
-        projection="geoNaturalEarth1"
-        projectionConfig={{ scale: 140 }}
-        style={{ width: "100%", height: "auto" }}
+    <div className="rounded-lg border bg-card overflow-hidden" style={{ height: 500 }}>
+      <MapContainer
+        center={buyer?.lat ? [buyer.lat, buyer.lng] : [20, 0]}
+        zoom={2}
+        scrollWheelZoom={true}
+        style={{ height: "100%", width: "100%" }}
       >
-        <Geographies geography={GEO_URL}>
-          {({ geographies }) =>
-            geographies.map((geo) => (
-              <Geography
-                key={geo.rsSVGPath}
-                geography={geo}
-                fill="#1a2540"
-                stroke="#2a3a5c"
-                strokeWidth={0.5}
-                style={{
-                  default: { outline: "none" },
-                  hover: { fill: "#1f2d4a", outline: "none" },
-                  pressed: { outline: "none" },
-                }}
-              />
-            ))
-          }
-        </Geographies>
-        {routes.map((route, i) => {
-          const fromPort = route.ports[0] ? portMap.get(route.ports[0]) : null;
-          const toPort = route.ports[route.ports.length - 1] ? portMap.get(route.ports[route.ports.length - 1]) : null;
-          if (!fromPort || !toPort) return null;
-          return (
-            <Line key={i} from={[fromPort.lng, fromPort.lat]} to={[toPort.lng, toPort.lat]}
-              stroke={legacyRiskColor(route.risk_score)} strokeWidth={2} strokeDasharray="4 3" strokeLinecap="round" />
-          );
-        })}
+        <TileLayer
+          url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
+          attribution='&copy; OpenStreetMap contributors &copy; CARTO'
+        />
+        {routePolylines}
         {Array.from(portMap.entries()).map(([name, coords]) => (
-          <Marker key={name} coordinates={[coords.lng, coords.lat]}>
-            <circle r={3} fill="hsl(210, 60%, 60%)" stroke="hsl(200, 20%, 92%)" strokeWidth={0.5} />
-            <text textAnchor="middle" y={-8} style={{ fontSize: 7, fill: "hsl(210, 15%, 55%)" }}>{name}</text>
+          <Marker key={name} position={[coords.lat, coords.lng]} icon={portIcon}>
+            <LeafletTooltip direction="top">{name}</LeafletTooltip>
           </Marker>
         ))}
-        {discovery_paths.filter((s) => s.lat && s.lng).map((s, i) => (
-          <Marker key={`s-${i}`} coordinates={[s.lng!, s.lat!]}>
-            <circle r={4} fill="hsl(45, 80%, 55%)" stroke="hsl(200, 20%, 92%)" strokeWidth={0.5} />
-          </Marker>
+        {(discovery_paths || []).filter((s) => s.lat && s.lng).map((s, i) => (
+          <Marker key={`s-${i}`} position={[s.lat!, s.lng!]} icon={makeSupplierIcon(s.trust_score)} />
         ))}
-        <Marker coordinates={[buyer.lng, buyer.lat]}>
-          <circle r={6} fill="hsl(190, 70%, 50%)" className="animate-pulse-glow" />
-          <circle r={3} fill="hsl(200, 20%, 92%)" />
-          <text textAnchor="middle" y={-12} style={{ fontSize: 9, fill: "hsl(190, 70%, 50%)", fontWeight: 600 }}>Buyer</text>
-        </Marker>
-      </ComposableMap>
+        {buyer?.lat && (
+          <Marker position={[buyer.lat, buyer.lng]} icon={buyerIcon}>
+            <LeafletTooltip direction="top" permanent>Buyer</LeafletTooltip>
+          </Marker>
+        )}
+      </MapContainer>
     </div>
   );
 };
