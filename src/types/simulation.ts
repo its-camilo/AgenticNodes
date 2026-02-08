@@ -72,6 +72,7 @@ export interface BuyerPin {
   label: string;
   lat: number;
   lng: number;
+  coordinates?: [number, number]; // [lng, lat]
 }
 
 export interface PortAgent {
@@ -95,6 +96,7 @@ export interface PortPin {
   country: string;
   lat: number;
   lng: number;
+  coordinates?: [number, number]; // [lng, lat]
   agents: PortAgent[];
   conditions: PortConditions;
 }
@@ -107,6 +109,7 @@ export interface SupplierPin {
   material: string;
   lat: number;
   lng: number;
+  coordinates?: [number, number]; // [lng, lat]
   trust_score: number;
   trust_rationale: string[];
   compliance_flags: string[];
@@ -142,6 +145,7 @@ export interface RouteLine {
   from_coords: { lat: number; lng: number };
   to_coords: { lat: number; lng: number };
   waypoints: { name: string; lat: number; lng: number }[];
+  polyline?: [number, number][]; // [[lng, lat], ...] complete path
   transit_days: number;
   risk_score: number;
   risk_level: "low" | "medium" | "high";
