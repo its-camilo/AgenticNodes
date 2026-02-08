@@ -91,6 +91,10 @@ const IntentInput = ({ onSubmit, isLoading }: IntentInputProps) => {
             Run Simulation
           </Button>
         </div>
+
+        <p className="text-center text-sm text-muted-foreground">
+          This project was made in the context of the 4th Hack Nation by Hack Nation AI.
+        </p>
       </div>
     </div>
   );

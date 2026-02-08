@@ -1,7 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { RotateCcw, Home } from "lucide-react";
+import { Home } from "lucide-react";
 import SupplierCard from "@/components/SupplierCard";
 import WorldMap from "@/components/WorldMap";
 import NegotiationTerms from "@/components/NegotiationTerms";
@@ -71,10 +71,6 @@ const ResultsDashboard = ({ data, onReset }: ResultsDashboardProps) => {
         <div className="max-w-[1600px] mx-auto px-4 py-3 flex items-center justify-between gap-4">
           <h2 className="text-sm font-semibold text-primary shrink-0">Simulation Results</h2>
           <div className="flex items-center gap-2">
-            <Button variant="outline" size="sm" onClick={onReset} className="shrink-0">
-              <RotateCcw className="h-4 w-4 mr-1" />
-              New
-            </Button>
             <Button
               variant="default"
               size="sm"
@@ -82,7 +78,7 @@ const ResultsDashboard = ({ data, onReset }: ResultsDashboardProps) => {
               className="shrink-0"
             >
               <Home className="h-4 w-4 mr-1" />
-              Volver al inicio
+              Home
             </Button>
           </div>
         </div>
