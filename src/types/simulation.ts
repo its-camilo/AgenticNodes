@@ -61,9 +61,15 @@ export interface Negotiation {
   total_cost_estimate: number;
 }
 
+export interface ExecutionPlanStep {
+  step: string;
+  description?: string;
+}
+
 export interface ExecutionPlan {
   timeline_days: number;
   risk_score: number;
+  steps?: ExecutionPlanStep[];
 }
 
 // --- Map Data types ---
@@ -162,6 +168,13 @@ export interface MapData {
   route_lines: RouteLine[];
 }
 
+export interface TrustLogicEntry {
+  supplier_id: string;
+  trust_score: number;
+  rationale: string;
+  flags?: string[];
+}
+
 // --- Report ---
 
 export interface SimulationReport {
@@ -171,6 +184,7 @@ export interface SimulationReport {
   negotiation: Negotiation;
   execution_plan: ExecutionPlan;
   map_data?: MapData;
+  trust_logic?: TrustLogicEntry[];
 }
 
 export interface SimulationResponse {
