@@ -1,11 +1,10 @@
 import { PHASES } from "@/types/simulation";
 
 const PHASE_LABELS: Record<string, string> = {
-  generating_world: "Generating World",
-  discovering_suppliers: "Discovering Suppliers",
-  planning_routes: "Planning Routes",
-  negotiating: "Negotiating",
-  awaiting_negotiation: "Awaiting Negotiation",
+  generating_world: "Analyzing demand...",
+  discovering_suppliers: "Validating suppliers...",
+  planning_routes: "Agents traveling to ports...",
+  negotiating: "Agents negotiating with suppliers...",
   complete: "Complete",
 };
 

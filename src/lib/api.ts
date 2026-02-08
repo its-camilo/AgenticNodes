@@ -1,4 +1,4 @@
-import type { SimulationRequest, SimulationResponse, NegotiateRequest, NegotiateResponse } from "@/types/simulation";
+import type { SimulationRequest, SimulationResponse } from "@/types/simulation";
 
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
 
@@ -17,19 +17,6 @@ export async function runSimulation(request: SimulationRequest, signal: AbortSig
   if (!res.ok) {
     const text = await res.text().catch(() => "Unknown error");
     throw new Error(`Simulation failed (${res.status}): ${text}`);
-  }
-  return res.json();
-}
-
-export async function negotiate(traceId: string, request: NegotiateRequest): Promise<NegotiateResponse> {
-  const res = await fetch(`${API_URL}/process-intent/${traceId}/negotiate`, {
-    method: "POST",
-    headers: HEADERS,
-    body: JSON.stringify(request),
-  });
-  if (!res.ok) {
-    const text = await res.text().catch(() => "Unknown error");
-    throw new Error(`Negotiation failed (${res.status}): ${text}`);
   }
   return res.json();
 }
