@@ -1,73 +1,125 @@
-# Welcome to your Lovable project
+# ⚓ Agentic Nodes
 
-## Project info
+**AI-powered supply chain simulation platform.** Describe your procurement needs in natural language and let autonomous agents discover suppliers, plan shipping routes, negotiate pricing, and build execution plans — all in real time.
 
-**URL**: https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID
+## ✨ Features
 
-## How can I edit this code?
+- **Natural Language Input** — Describe what you need to procure and where you are located; the system handles the rest.
+- **Multi-Phase Simulation** — Watch the pipeline progress through world generation, supplier discovery, route planning, negotiation, and execution planning.
+- **Live Map Visualization** — An interactive world map shows evaluated routes, supplier locations, ports, and buyer position as the simulation runs.
+- **Supplier Trust Scoring** — Each supplier is evaluated with a trust score, rationale, certifications, and compliance flags.
+- **Route Risk Analysis** — Shipping routes are scored by transit time, risk level, and port conditions.
+- **Negotiation Dashboard** — View negotiated terms including unit price, quantity, subtotals, lead times, and total cost estimates.
+- **Execution Plan** — A step-by-step timeline with overall risk scoring.
+- **Disruption Simulation** — Toggle simulated disruptions to stress-test the supply chain.
 
-There are several ways of editing your application.
+## 🛠 Tech Stack
 
-**Use Lovable**
+| Layer | Technologies |
+|---|---|
+| **Framework** | [React 18](https://react.dev/) + [TypeScript](https://www.typescriptlang.org/) |
+| **Build Tool** | [Vite](https://vitejs.dev/) |
+| **Styling** | [Tailwind CSS](https://tailwindcss.com/) + [shadcn/ui](https://ui.shadcn.com/) |
+| **Maps** | [React Simple Maps](https://www.react-simple-maps.io/) · [React Leaflet](https://react-leaflet.js.org/) |
+| **Charts** | [Recharts](https://recharts.org/) |
+| **State / Data** | [TanStack React Query](https://tanstack.com/query) · [React Hook Form](https://react-hook-form.com/) + [Zod](https://zod.dev/) |
+| **Routing** | [React Router v6](https://reactrouter.com/) |
+| **Testing** | [Vitest](https://vitest.dev/) + [Testing Library](https://testing-library.com/) |
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and start prompting.
+## 🏗 Architecture
 
-Changes made via Lovable will be committed automatically to this repo.
+```
+User ──▶ IntentInput (natural language + location + disruptions toggle)
+              │
+              ▼
+         POST /process-intent  ──────────────────▶  Backend API
+              │                                         │
+              │  SSE /events ◀──────────────────────────┘
+              │   (phase updates + evaluated routes)
+              ▼
+         LoadingView (live world map + phase progress)
+              │
+              ▼
+         ResultsDashboard
+           ├── Supplier Cards + Trust Logic
+           ├── Interactive Map (routes, ports, suppliers)
+           └── Negotiation Terms + Execution Plan
+```
 
-**Use your preferred IDE**
+The frontend connects to a backend API via:
+- **REST** (`POST /process-intent`) — starts the simulation and returns the full report.
+- **SSE** (`GET /events`) — streams real-time phase updates and route evaluations while the simulation runs.
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
+## 🚀 Getting Started
 
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
+### Prerequisites
 
-Follow these steps:
+- [Node.js](https://nodejs.org/) ≥ 18 (recommended: install via [nvm](https://github.com/nvm-sh/nvm#installing-and-updating))
+- npm (included with Node.js)
+
+### Installation
 
 ```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
+# Clone the repository
+git clone https://github.com/its-camilo/agentic-nodes.git
+cd agentic-nodes
 
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
+# Install dependencies
+npm install
 
-# Step 3: Install the necessary dependencies.
-npm i
-
-# Step 4: Start the development server with auto-reloading and an instant preview.
+# Start the development server
 npm run dev
 ```
 
-**Edit a file directly in GitHub**
+The app will be available at `http://localhost:5173` by default.
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+### Environment Variables
 
-**Use GitHub Codespaces**
+Create a `.env.local` file in the project root to configure the backend API URL:
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+```env
+VITE_API_URL=http://localhost:8000
+```
 
-## What technologies are used for this project?
+If not set, the app defaults to `http://localhost:8000`.
 
-This project is built with:
+## 📜 Available Scripts
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+| Command | Description |
+|---|---|
+| `npm run dev` | Start the development server with hot reload |
+| `npm run build` | Build for production |
+| `npm run build:dev` | Build in development mode |
+| `npm run preview` | Preview the production build locally |
+| `npm run lint` | Run ESLint |
+| `npm run test` | Run tests once |
+| `npm run test:watch` | Run tests in watch mode |
 
-## How can I deploy this project?
+## 📁 Project Structure
 
-Simply open [Lovable](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and click on Share -> Publish.
-
-## Can I connect a custom domain to my Lovable project?
-
-Yes, you can!
-
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
-
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)
+```
+src/
+├── components/
+│   ├── IntentInput.tsx          # Procurement request form
+│   ├── LoadingView.tsx          # Simulation progress + live map
+│   ├── ResultsDashboard.tsx     # Final results layout
+│   ├── WorldMap.tsx             # Interactive Leaflet map
+│   ├── RouteMap.tsx             # Route visualization
+│   ├── SupplierCard.tsx         # Supplier info card
+│   ├── NegotiationTerms.tsx     # Negotiation terms table
+│   ├── SummaryDisplay.tsx       # AI-generated summary
+│   ├── MapPortPanel.tsx         # Port details panel
+│   ├── MapSupplierPanel.tsx     # Supplier details panel
+│   ├── MapRoutePopup.tsx        # Route popup on map
+│   └── ui/                     # shadcn/ui primitives
+├── hooks/                       # Custom React hooks
+├── lib/
+│   ├── api.ts                   # Backend API client
+│   └── utils.ts                 # Utility functions
+├── pages/
+│   ├── Index.tsx                # Main page (simulation flow)
+│   └── NotFound.tsx             # 404 page
+├── test/                        # Test files
+└── types/
+    └── simulation.ts            # TypeScript type definitions
+```
