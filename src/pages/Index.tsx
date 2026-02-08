@@ -5,7 +5,7 @@ import { runSimulation, getEventsUrl } from "@/lib/api";
 import IntentInput from "@/components/IntentInput";
 import LoadingView from "@/components/LoadingView";
 import ResultsDashboard from "@/components/ResultsDashboard";
-import type { AppView, SimulationResponse } from "@/types/simulation";
+import type { AppView, SimulationResponse, NegotiationReadyPayload } from "@/types/simulation";
 
 const Index = () => {
   const [view, setView] = useState<AppView>("input");
@@ -13,6 +13,7 @@ const Index = () => {
   const [phaseMessage, setPhaseMessage] = useState("");
   const [result, setResult] = useState<SimulationResponse | null>(null);
   const [negotiationMode, setNegotiationMode] = useState(false);
+  const [negotiationReadyData, setNegotiationReadyData] = useState<NegotiationReadyPayload | null>(null);
   const sseRef = useRef<EventSourcePolyfill | null>(null);
 
   const closeSse = useCallback(() => {
@@ -28,6 +29,7 @@ const Index = () => {
       setCurrentPhase("");
       setPhaseMessage("Connecting...");
       setNegotiationMode(false);
+      setNegotiationReadyData(null);
 
       // 1. Connect SSE FIRST
       const sse = new EventSourcePolyfill(getEventsUrl(), {
@@ -46,10 +48,21 @@ const Index = () => {
       // Listen for negotiation_ready event
       sse.addEventListener("negotiation_ready", (event: any) => {
         try {
-          const _data = JSON.parse(event.data);
-          // The negotiation data will be in the final response; 
-          // this event signals we should enter negotiation mode
+          const data = JSON.parse(event.data);
           setNegotiationMode(true);
+          if (data?.payload) {
+            setNegotiationReadyData(data.payload);
+          }
+        } catch {}
+      });
+
+      // Listen for negotiation_update event (optional: update terms in real-time)
+      sse.addEventListener("negotiation_update", (event: any) => {
+        try {
+          const data = JSON.parse(event.data);
+          if (data?.updated_terms) {
+            toast({ title: "Terms Updated", description: "Negotiation terms have been updated." });
+          }
         } catch {}
       });
 
@@ -90,6 +103,7 @@ const Index = () => {
     setCurrentPhase("");
     setPhaseMessage("");
     setNegotiationMode(false);
+    setNegotiationReadyData(null);
   }, []);
 
   const handleFinalizeNegotiation = useCallback(() => {
@@ -107,11 +121,12 @@ const Index = () => {
         onReset={handleReset}
         negotiationMode={negotiationMode}
         onFinalizeNegotiation={handleFinalizeNegotiation}
+        negotiationReadyData={negotiationReadyData}
       />
     );
   }
 
-  return <IntentInput onSubmit={handleSubmit} isLoading={false} />;
+  return <IntentInput onSubmit={handleSubmit} isLoading={view === "loading"} />;
 };
 
 export default Index;

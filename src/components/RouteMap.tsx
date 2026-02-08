@@ -157,7 +157,7 @@ const RouteMap = ({ report }: RouteMapProps) => {
 
         {/* Port markers */}
         {mapData.port_pins?.map((port) => {
-          if (!port?.lat || !port?.lng) return null;
+          if (port?.lat == null || port?.lng == null) return null;
           return (
             <Marker
               key={port.id}
@@ -174,7 +174,7 @@ const RouteMap = ({ report }: RouteMapProps) => {
 
         {/* Supplier markers */}
         {mapData.supplier_pins?.map((s) => {
-          if (!s?.lat || !s?.lng) return null;
+          if (s?.lat == null || s?.lng == null) return null;
           return (
             <Marker
               key={s.id}

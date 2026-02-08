@@ -4,6 +4,7 @@ const PHASE_LABELS: Record<string, string> = {
   generating_world: "Generating World",
   discovering_suppliers: "Discovering Suppliers",
   planning_routes: "Planning Routes",
+  negotiating: "Negotiating",
   awaiting_negotiation: "Awaiting Negotiation",
   complete: "Complete",
 };

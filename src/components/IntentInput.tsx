@@ -17,7 +17,7 @@ const IntentInput = ({ onSubmit, isLoading }: IntentInputProps) => {
   const [simulateDisruptions, setSimulateDisruptions] = useState(false);
 
   const handleSubmit = () => {
-    if (!intent.trim()) return;
+    if (!intent.trim() || intent.length > 2000) return;
     onSubmit(intent.trim(), buyerLocation.trim() || "United States", simulateDisruptions);
   };
 
@@ -46,9 +46,15 @@ const IntentInput = ({ onSubmit, isLoading }: IntentInputProps) => {
               id="intent"
               value={intent}
               onChange={(e) => setIntent(e.target.value)}
+              maxLength={2000}
               placeholder="I need to source lithium-ion battery cells and cobalt for EV batteries in Detroit. Find suppliers in Asia and South America, plan shipping routes, and negotiate pricing for 50,000 units."
               className="min-h-[140px] resize-none bg-secondary/50 text-foreground placeholder:text-muted-foreground"
             />
+            {intent.length > 1900 && (
+              <p className="text-xs text-muted-foreground text-right" aria-live="polite">
+                {intent.length}/2000
+              </p>
+            )}
           </div>
 
           <div className="space-y-2">
@@ -77,7 +83,7 @@ const IntentInput = ({ onSubmit, isLoading }: IntentInputProps) => {
 
           <Button
             onClick={handleSubmit}
-            disabled={!intent.trim() || isLoading}
+            disabled={!intent.trim() || intent.length > 2000 || isLoading}
             className="w-full h-12 text-base font-semibold"
             size="lg"
           >

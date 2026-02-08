@@ -30,7 +30,7 @@ const NegotiationTerms = ({ terms, totalCost, executionPlan }: NegotiationTermsP
             </TableRow>
           </TableHeader>
           <TableBody>
-            {terms.map((t, i) => (
+            {(terms ?? []).map((t, i) => (
               <TableRow key={i}>
                 <TableCell className="text-xs font-medium">{t.material}</TableCell>
                 <TableCell className="text-xs">{t.qty.toLocaleString()}</TableCell>
