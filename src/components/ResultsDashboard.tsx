@@ -1,7 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { RotateCcw } from "lucide-react";
+import { RotateCcw, Home } from "lucide-react";
 import SupplierCard from "@/components/SupplierCard";
 import WorldMap from "@/components/WorldMap";
 import NegotiationTerms from "@/components/NegotiationTerms";
@@ -42,15 +42,18 @@ const TrustLogicCard = ({ entry }: { entry: TrustLogicEntry }) => {
 };
 
 const RouteCard = ({ route }: { route: Route }) => {
-  const riskPct = (route.risk_score * 100).toFixed(0);
+  const riskPct = route.risk_pct != null ? route.risk_pct : Math.round((route.risk_score ?? 0) * 100);
+  const portsText = route.ports && route.ports.length > 0 ? route.ports.join(" → ") : "—";
   return (
     <div className="rounded-lg border bg-card p-3 space-y-1">
       <div className="flex items-center justify-between">
-        <span className="text-xs font-medium text-foreground">{route.from} → {route.to}</span>
+        <span className="text-xs font-medium text-foreground">
+          {route.supplier_name || route.from}{route.material ? ` (${route.material})` : ""}{route.to ? ` → ${route.to}` : ""}
+        </span>
         <span className="text-xs text-muted-foreground">{route.transit_days}d</span>
       </div>
       <p className="text-xs text-muted-foreground">
-        Risk: {riskPct}% · Ports: {route.ports?.join(", ") || "—"}
+        Risk: {riskPct}% · Ports: {portsText}
       </p>
     </div>
   );
@@ -67,10 +70,21 @@ const ResultsDashboard = ({ data, onReset }: ResultsDashboardProps) => {
       <header className="border-b bg-card/80 backdrop-blur-sm sticky top-0 z-10">
         <div className="max-w-[1600px] mx-auto px-4 py-3 flex items-center justify-between gap-4">
           <h2 className="text-sm font-semibold text-primary shrink-0">Simulation Results</h2>
-          <Button variant="outline" size="sm" onClick={onReset} className="shrink-0">
-            <RotateCcw className="h-4 w-4 mr-1" />
-            New
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" size="sm" onClick={onReset} className="shrink-0">
+              <RotateCcw className="h-4 w-4 mr-1" />
+              New
+            </Button>
+            <Button
+              variant="default"
+              size="sm"
+              onClick={() => window.location.reload()}
+              className="shrink-0"
+            >
+              <Home className="h-4 w-4 mr-1" />
+              Volver al inicio
+            </Button>
+          </div>
         </div>
       </header>
 
@@ -89,13 +103,43 @@ const ResultsDashboard = ({ data, onReset }: ResultsDashboardProps) => {
             </h3>
             <ScrollArea className="h-[calc(100vh-220px)] lg:h-[500px]">
               <div className="space-y-3 pr-2">
-                {(report.discovery_paths ?? []).map((s, i) => (
-                  <SupplierCard key={i} supplier={s} />
-                ))}
-                {(report.discovery_paths ?? []).length === 0 &&
-                  (report.trust_logic ?? []).map((entry, i) => (
-                    <TrustLogicCard key={i} entry={entry} />
-                  ))}
+                {/* Show suppliers from map_data.supplier_pins when available */}
+                {report.map_data?.supplier_pins && report.map_data.supplier_pins.length > 0
+                  ? report.map_data.supplier_pins.map((s, i) => (
+                      <div key={i} className="rounded-lg border bg-card p-4 space-y-2">
+                        <div className="flex items-start justify-between gap-2">
+                          <h4 className="font-semibold text-sm text-foreground leading-tight">
+                            {s.name}
+                          </h4>
+                          <Badge
+                            className={`shrink-0 ${
+                              s.trust_score > 75
+                                ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/30"
+                                : s.trust_score > 50
+                                ? "bg-yellow-500/20 text-yellow-400 border-yellow-500/30"
+                                : "bg-red-500/20 text-red-400 border-red-500/30"
+                            }`}
+                          >
+                            {s.trust_score}
+                          </Badge>
+                        </div>
+                        <p className="text-xs text-muted-foreground">
+                          {s.material} · {s.country}
+                        </p>
+                        {s.trust_rationale && s.trust_rationale.length > 0 && (
+                          <p className="text-xs text-muted-foreground leading-relaxed">
+                            {s.trust_rationale.join("; ")}
+                          </p>
+                        )}
+                      </div>
+                    ))
+                  : (report.discovery_paths ?? []).length > 0
+                  ? (report.discovery_paths ?? []).map((s, i) => (
+                      <SupplierCard key={i} supplier={s} />
+                    ))
+                  : (report.trust_logic ?? []).map((entry, i) => (
+                      <TrustLogicCard key={i} entry={entry} />
+                    ))}
                 {(report.routes ?? []).length > 0 && (
                   <>
                     <h4 className="text-xs font-semibold text-foreground mt-4">Routes</h4>

@@ -1,34 +1,31 @@
-import { useMemo } from "react";
-import {
-  ComposableMap,
-  Geographies,
-  Geography,
-  Marker,
-  Line,
-} from "react-simple-maps";
+import { useMemo, useRef, useEffect } from "react";
+import Globe from "react-globe.gl";
+import type { GlobeMethods } from "react-globe.gl";
 import type { SimulationReport } from "@/types/simulation";
-
-const GEO_URL = "https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json";
 
 interface WorldMapProps {
   report: SimulationReport;
 }
 
-interface PinData {
-  id: string;
+interface ArcData {
+  startLat: number;
+  startLng: number;
+  endLat: number;
+  endLng: number;
+  color: string;
   label: string;
-  coords: [number, number]; // [lng, lat]
-  type: "buyer" | "supplier";
-  country?: string;
 }
 
-interface RouteData {
-  from: [number, number];
-  to: [number, number];
-  riskLevel: string;
+interface PointData {
+  lat: number;
+  lng: number;
+  label: string;
+  color: string;
+  size: number;
+  type: "buyer" | "supplier" | "port";
 }
 
-const riskStroke = (level: string) =>
+const riskColor = (level: string) =>
   level === "low"
     ? "#2d8a4e"
     : level === "medium"
@@ -36,19 +33,22 @@ const riskStroke = (level: string) =>
     : "#c94040";
 
 const WorldMap = ({ report }: WorldMapProps) => {
+  const globeRef = useRef<GlobeMethods>();
   const mapData = report.map_data;
 
-  const { pins, routes, hasData } = useMemo(() => {
-    const pins: PinData[] = [];
-    const routes: RouteData[] = [];
+  const { points, arcs } = useMemo(() => {
+    const points: PointData[] = [];
+    const arcs: ArcData[] = [];
 
     if (mapData) {
       // Buyer pin
       if (mapData.buyer_pin?.lat != null && mapData.buyer_pin?.lng != null) {
-        pins.push({
-          id: mapData.buyer_pin.id || "buyer",
+        points.push({
+          lat: mapData.buyer_pin.lat,
+          lng: mapData.buyer_pin.lng,
           label: mapData.buyer_pin.label || "Buyer",
-          coords: [mapData.buyer_pin.lng, mapData.buyer_pin.lat],
+          color: "#38bdf8",
+          size: 0.8,
           type: "buyer",
         });
       }
@@ -56,17 +56,32 @@ const WorldMap = ({ report }: WorldMapProps) => {
       // Supplier pins
       (mapData.supplier_pins ?? []).forEach((s) => {
         if (s?.lat != null && s?.lng != null) {
-          pins.push({
-            id: s.id,
-            label: s.name,
-            coords: [s.lng, s.lat],
+          points.push({
+            lat: s.lat,
+            lng: s.lng,
+            label: `${s.name} (${s.material})`,
+            color: "#2d8a4e",
+            size: 0.5,
             type: "supplier",
-            country: s.country,
           });
         }
       });
 
-      // Route lines
+      // Port pins
+      (mapData.port_pins ?? []).forEach((p) => {
+        if (p?.lat != null && p?.lng != null) {
+          points.push({
+            lat: p.lat,
+            lng: p.lng,
+            label: `${p.name}, ${p.country}`,
+            color: "#6b93d6",
+            size: 0.3,
+            type: "port",
+          });
+        }
+      });
+
+      // Route arcs
       (mapData.route_lines ?? []).forEach((r) => {
         if (
           r.from_coords?.lat != null &&
@@ -74,10 +89,13 @@ const WorldMap = ({ report }: WorldMapProps) => {
           r.to_coords?.lat != null &&
           r.to_coords?.lng != null
         ) {
-          routes.push({
-            from: [r.from_coords.lng, r.from_coords.lat],
-            to: [r.to_coords.lng, r.to_coords.lat],
-            riskLevel: r.risk_level ?? "medium",
+          arcs.push({
+            startLat: r.from_coords.lat,
+            startLng: r.from_coords.lng,
+            endLat: r.to_coords.lat,
+            endLng: r.to_coords.lng,
+            color: riskColor(r.risk_level ?? "medium"),
+            label: `${r.supplier_name || r.supplier_id}: ${r.material} (${r.transit_days}d)`,
           });
         }
       });
@@ -85,137 +103,108 @@ const WorldMap = ({ report }: WorldMapProps) => {
       // Fallback: use legacy data
       const buyer = report.world_context?.buyer_coordinates;
       if (buyer?.lat != null && buyer?.lng != null) {
-        pins.push({
-          id: "buyer",
+        points.push({
+          lat: buyer.lat,
+          lng: buyer.lng,
           label: "Buyer",
-          coords: [buyer.lng, buyer.lat],
+          color: "#38bdf8",
+          size: 0.8,
           type: "buyer",
         });
       }
 
-      (report.discovery_paths ?? []).forEach((s, i) => {
+      (report.discovery_paths ?? []).forEach((s) => {
         if (s.lat != null && s.lng != null) {
-          pins.push({
-            id: `supplier-${i}`,
+          points.push({
+            lat: s.lat,
+            lng: s.lng!,
             label: s.identity,
-            coords: [s.lng, s.lat],
+            color: "#2d8a4e",
+            size: 0.5,
             type: "supplier",
           });
+
+          if (buyer?.lat != null && buyer?.lng != null) {
+            arcs.push({
+              startLat: buyer.lat,
+              startLng: buyer.lng,
+              endLat: s.lat,
+              endLng: s.lng!,
+              color: "#c9a832",
+              label: s.identity,
+            });
+          }
         }
       });
     }
 
-    return { pins, routes, hasData: pins.length > 0 };
+    return { points, arcs };
   }, [mapData, report.world_context, report.discovery_paths]);
 
-  // If no valid geo data, render nothing
-  if (!hasData) {
+  // Auto-position camera to fit data
+  useEffect(() => {
+    if (!globeRef.current || points.length === 0) return;
+    const timer = setTimeout(() => {
+      const buyer = points.find((p) => p.type === "buyer");
+      if (buyer) {
+        globeRef.current?.pointOfView({ lat: buyer.lat, lng: buyer.lng, altitude: 2.5 }, 1000);
+      } else {
+        const first = points[0];
+        globeRef.current?.pointOfView({ lat: first.lat, lng: first.lng, altitude: 2.5 }, 1000);
+      }
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [points]);
+
+  if (points.length === 0 && arcs.length === 0) {
     return null;
   }
 
-  const buyerPin = pins.find((p) => p.type === "buyer");
-  const supplierPins = pins.filter((p) => p.type === "supplier");
-
   return (
     <div className="rounded-lg border bg-card overflow-hidden relative" style={{ height: 500 }}>
-      <ComposableMap
-        projectionConfig={{ scale: 140, center: [0, 20] }}
-        width={800}
-        height={450}
-        style={{ width: "100%", height: "100%" }}
-      >
-        <Geographies geography={GEO_URL}>
-          {({ geographies }) =>
-            geographies.map((geo) => (
-              <Geography
-                key={geo.rsmKey}
-                geography={geo}
-                fill="#1e293b"
-                stroke="#334155"
-                strokeWidth={0.5}
-                style={{
-                  default: { outline: "none" },
-                  hover: { outline: "none", fill: "#334155" },
-                  pressed: { outline: "none" },
-                }}
-              />
-            ))
-          }
-        </Geographies>
-
-        {/* Route lines */}
-        {routes.map((r, i) => (
-          <Line
-            key={`route-${i}`}
-            from={r.from}
-            to={r.to}
-            stroke={riskStroke(r.riskLevel)}
-            strokeWidth={2}
-            strokeLinecap="round"
-            strokeDasharray="6 4"
-          />
-        ))}
-
-        {/* Fallback routes: draw lines from buyer to each supplier */}
-        {routes.length === 0 && buyerPin && supplierPins.map((s, i) => (
-          <Line
-            key={`fallback-route-${i}`}
-            from={buyerPin.coords}
-            to={s.coords}
-            stroke="#c9a832"
-            strokeWidth={1.5}
-            strokeLinecap="round"
-            strokeDasharray="6 4"
-          />
-        ))}
-
-        {/* Supplier markers */}
-        {supplierPins.map((pin) => (
-          <Marker key={pin.id} coordinates={pin.coords}>
-            <circle r={5} fill="#2d8a4e" stroke="#fff" strokeWidth={1.5} />
-            <text
-              textAnchor="middle"
-              y={-10}
-              style={{
-                fontFamily: "system-ui",
-                fontSize: 8,
-                fill: "#94a3b8",
-              }}
-            >
-              {pin.label}
-            </text>
-          </Marker>
-        ))}
-
-        {/* Buyer marker */}
-        {buyerPin && (
-          <Marker coordinates={buyerPin.coords}>
-            <circle r={7} fill="#38bdf8" stroke="#fff" strokeWidth={2} />
-            <text
-              textAnchor="middle"
-              y={-12}
-              style={{
-                fontFamily: "system-ui",
-                fontSize: 9,
-                fill: "#38bdf8",
-                fontWeight: 600,
-              }}
-            >
-              {buyerPin.label}
-            </text>
-          </Marker>
-        )}
-      </ComposableMap>
+      <Globe
+        ref={globeRef}
+        width={600}
+        height={500}
+        backgroundColor="rgba(0,0,0,0)"
+        globeImageUrl="//unpkg.com/three-globe/example/img/earth-night.jpg"
+        showAtmosphere={true}
+        atmosphereColor="#38bdf8"
+        atmosphereAltitude={0.15}
+        // Points
+        pointsData={points}
+        pointLat="lat"
+        pointLng="lng"
+        pointColor="color"
+        pointRadius="size"
+        pointAltitude={0.01}
+        pointLabel="label"
+        // Arcs
+        arcsData={arcs}
+        arcStartLat="startLat"
+        arcStartLng="startLng"
+        arcEndLat="endLat"
+        arcEndLng="endLng"
+        arcColor="color"
+        arcStroke={0.5}
+        arcDashLength={0.4}
+        arcDashGap={0.2}
+        arcDashAnimateTime={1500}
+        arcLabel="label"
+      />
 
       {/* Legend */}
       <div className="absolute bottom-2 left-2 z-10 bg-card/90 rounded p-2 text-[10px] space-y-1 border pointer-events-none">
         <div className="flex items-center gap-1.5">
-          <span className="w-2.5 h-2.5 rounded-full inline-block" style={{ background: "#38bdf8" }} /> Buyer (origin)
+          <span className="w-2.5 h-2.5 rounded-full inline-block" style={{ background: "#38bdf8" }} /> Buyer
         </div>
         <div className="flex items-center gap-1.5">
-          <span className="w-2.5 h-2.5 rounded-full inline-block" style={{ background: "#2d8a4e" }} /> Supplier (destination)
+          <span className="w-2.5 h-2.5 rounded-full inline-block" style={{ background: "#2d8a4e" }} /> Supplier
         </div>
-        {routes.length > 0 && (
+        <div className="flex items-center gap-1.5">
+          <span className="w-2.5 h-2.5 rounded-full inline-block" style={{ background: "#6b93d6" }} /> Port
+        </div>
+        {arcs.length > 0 && (
           <>
             <div className="flex items-center gap-1.5"><span className="w-2 h-0.5 inline-block" style={{ background: "#2d8a4e" }} /> Low risk</div>
             <div className="flex items-center gap-1.5"><span className="w-2 h-0.5 inline-block" style={{ background: "#c9a832" }} /> Medium risk</div>

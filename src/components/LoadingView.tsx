@@ -1,13 +1,7 @@
-import {
-  ComposableMap,
-  Geographies,
-  Geography,
-  Marker,
-  Line,
-} from "react-simple-maps";
+import { useMemo, useRef, useEffect, useState } from "react";
+import Globe from "react-globe.gl";
+import type { GlobeMethods } from "react-globe.gl";
 import { PHASES } from "@/types/simulation";
-
-const GEO_URL = "https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json";
 
 const PHASE_LABELS: Record<string, string> = {
   generating_world: "Analyzing demand...",
@@ -30,28 +24,64 @@ interface LoadingViewProps {
   evaluatedRoutes?: EvaluatedRoute[];
 }
 
+// Default demo arcs while waiting for real data
+const DEMO_ARCS = [
+  { startLat: 40.7, startLng: -74.0, endLat: 51.5, endLng: -0.1, color: "#c9a832" },
+  { startLat: 35.7, startLng: 139.7, endLat: 1.3, endLng: 103.8, color: "#2d8a4e" },
+  { startLat: -33.9, startLng: 18.4, endLat: 22.3, endLng: 114.2, color: "#c94040" },
+  { startLat: 31.2, startLng: 121.5, endLat: 37.6, endLng: -122.4, color: "#c9a832" },
+  { startLat: 19.4, startLng: -99.1, endLat: -23.5, endLng: -46.6, color: "#2d8a4e" },
+  { startLat: 55.8, startLng: 37.6, endLat: 28.6, endLng: 77.2, color: "#c94040" },
+];
+
 const LoadingView = ({ currentPhase, phaseMessage, evaluatedRoutes = [] }: LoadingViewProps) => {
+  const globeRef = useRef<GlobeMethods>();
   const phaseIndex = PHASES.indexOf(currentPhase as typeof PHASES[number]);
+  const [isGlobeReady, setIsGlobeReady] = useState(false);
 
-  // Derive unique origin and destination markers from evaluated routes
-  const originsMap = new Map<string, [number, number]>();
-  const destinationsMap = new Map<string, [number, number]>();
-  evaluatedRoutes.forEach((r) => {
-    originsMap.set(`${r.from[0]},${r.from[1]}`, r.from);
-    destinationsMap.set(`${r.to[0]},${r.to[1]}`, r.to);
-  });
-  const origins = Array.from(originsMap.values());
-  const destinations = Array.from(destinationsMap.values());
+  // Build arcs from evaluated routes or use demo arcs
+  const arcs = useMemo(() => {
+    if (evaluatedRoutes.length > 0) {
+      return evaluatedRoutes.map((r) => ({
+        startLat: r.from[1],
+        startLng: r.from[0],
+        endLat: r.to[1],
+        endLng: r.to[0],
+        color: r.status === "evaluating" ? "#c9a832" : "#2d8a4e",
+      }));
+    }
+    return DEMO_ARCS;
+  }, [evaluatedRoutes]);
 
-  // Place ships at the midpoint of each route
-  const shipPositions = evaluatedRoutes.map((r) => {
-    const midLng = (r.from[0] + r.to[0]) / 2;
-    const midLat = (r.from[1] + r.to[1]) / 2;
-    return [midLng, midLat] as [number, number];
-  });
+  // Build point markers from evaluated routes
+  const points = useMemo(() => {
+    if (evaluatedRoutes.length === 0) return [];
+    const pointMap = new Map<string, { lat: number; lng: number; color: string }>();
+    evaluatedRoutes.forEach((r) => {
+      const fromKey = `${r.from[0]},${r.from[1]}`;
+      const toKey = `${r.to[0]},${r.to[1]}`;
+      if (!pointMap.has(fromKey)) {
+        pointMap.set(fromKey, { lat: r.from[1], lng: r.from[0], color: "#38bdf8" });
+      }
+      if (!pointMap.has(toKey)) {
+        pointMap.set(toKey, { lat: r.to[1], lng: r.to[0], color: "#2d8a4e" });
+      }
+    });
+    return Array.from(pointMap.values());
+  }, [evaluatedRoutes]);
+
+  // Slow auto-rotation
+  useEffect(() => {
+    if (!globeRef.current || !isGlobeReady) return;
+    const controls = globeRef.current.controls();
+    if (controls) {
+      controls.autoRotate = true;
+      controls.autoRotateSpeed = 0.5;
+    }
+  }, [isGlobeReady]);
 
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center p-4 gap-8">
+    <div className="flex min-h-screen flex-col items-center justify-center p-4 gap-6">
       <div className="text-center space-y-3 max-w-lg">
         <h2 className="text-2xl font-bold text-foreground">
           Simulation in progress
@@ -82,73 +112,37 @@ const LoadingView = ({ currentPhase, phaseMessage, evaluatedRoutes = [] }: Loadi
         ))}
       </div>
 
-      {/* React Simple Maps World Map */}
+      {/* 3D Globe */}
       <div className="w-full max-w-3xl rounded-lg border bg-card overflow-hidden relative" style={{ height: 420 }}>
-        <ComposableMap
-          projectionConfig={{ scale: 140, center: [0, 20] }}
+        <Globe
+          ref={globeRef}
           width={800}
-          height={450}
-          style={{ width: "100%", height: "100%" }}
-        >
-          <Geographies geography={GEO_URL}>
-            {({ geographies }) =>
-              geographies.map((geo) => (
-                <Geography
-                  key={geo.rsmKey}
-                  geography={geo}
-                  fill="#1e293b"
-                  stroke="#334155"
-                  strokeWidth={0.5}
-                  style={{
-                    default: { outline: "none" },
-                    hover: { outline: "none" },
-                    pressed: { outline: "none" },
-                  }}
-                />
-              ))
-            }
-          </Geographies>
-
-          {/* Evaluated route lines */}
-          {evaluatedRoutes.map((r, i) => (
-            <Line
-              key={`eval-route-${i}`}
-              from={r.from}
-              to={r.to}
-              stroke="#c9a832"
-              strokeWidth={1.5}
-              strokeLinecap="round"
-              strokeDasharray="6 4"
-            />
-          ))}
-
-          {/* Destination markers (suppliers) */}
-          {destinations.map((coords, i) => (
-            <Marker key={`dest-${i}`} coordinates={coords}>
-              <circle r={5} fill="#2d8a4e" stroke="#fff" strokeWidth={1.5} />
-            </Marker>
-          ))}
-
-          {/* Origin marker (buyer) */}
-          {origins.map((coords, i) => (
-            <Marker key={`origin-${i}`} coordinates={coords}>
-              <circle r={7} fill="#38bdf8" stroke="#fff" strokeWidth={2} />
-            </Marker>
-          ))}
-
-          {/* Ship markers on route midpoints */}
-          {shipPositions.map((coords, i) => (
-            <Marker key={`ship-${i}`} coordinates={coords}>
-              <text
-                textAnchor="middle"
-                dominantBaseline="central"
-                fontSize={14}
-              >
-                🚢
-              </text>
-            </Marker>
-          ))}
-        </ComposableMap>
+          height={420}
+          backgroundColor="rgba(0,0,0,0)"
+          globeImageUrl="//unpkg.com/three-globe/example/img/earth-night.jpg"
+          showAtmosphere={true}
+          atmosphereColor="#38bdf8"
+          atmosphereAltitude={0.15}
+          onGlobeReady={() => setIsGlobeReady(true)}
+          // Points
+          pointsData={points}
+          pointLat="lat"
+          pointLng="lng"
+          pointColor="color"
+          pointRadius={0.5}
+          pointAltitude={0.01}
+          // Arcs
+          arcsData={arcs}
+          arcStartLat="startLat"
+          arcStartLng="startLng"
+          arcEndLat="endLat"
+          arcEndLng="endLng"
+          arcColor="color"
+          arcStroke={0.5}
+          arcDashLength={0.4}
+          arcDashGap={0.2}
+          arcDashAnimateTime={2000}
+        />
       </div>
     </div>
   );

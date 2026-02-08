@@ -44,11 +44,15 @@ export interface Route {
   ports: string[];
   transit_days: number;
   risk_score: number;
+  risk_pct?: number;
+  supplier_name?: string;
+  material?: string;
 }
 
 export interface NegotiationTerm {
   material: string;
   supplier_id: string;
+  supplier_name?: string;
   qty: number;
   unit_price_est: number;
   subtotal: number;
@@ -64,6 +68,7 @@ export interface Negotiation {
 export interface ExecutionPlanStep {
   step: string;
   description?: string;
+  supplier_name?: string;
 }
 
 export interface ExecutionPlan {
@@ -156,7 +161,9 @@ export interface RouteLine {
   polyline?: [number, number][]; // [[lng, lat], ...] complete path
   transit_days: number;
   risk_score: number;
+  risk_pct?: number;
   risk_level: "low" | "medium" | "high";
+  ports?: string[];
   status: string;
   agents: RouteAgents;
 }
