@@ -179,29 +179,6 @@ export interface SimulationResponse {
   summary: string;
 }
 
-export interface NegotiateRequest {
-  message: string;
-  supplier_id: string | null;
-  port: string | null;
-}
-
-export interface ChatMessage {
-  role: "user" | "agent";
-  content: string;
-}
-
-export interface NegotiateResponse {
-  trace_id: string;
-  agent_reply: string;
-  updated_terms: NegotiationTerm[] | null;
-  negotiation_history: ChatMessage[];
-}
-
-export interface NegotiationReadyPayload {
-  negotiation: Negotiation;
-  suppliers: { id: string; name: string; material: string }[];
-}
-
 export type AppView = "input" | "loading" | "results";
 
 export const PHASES = [
@@ -209,6 +186,5 @@ export const PHASES = [
   "discovering_suppliers",
   "planning_routes",
   "negotiating",
-  "awaiting_negotiation",
   "complete",
 ] as const;
