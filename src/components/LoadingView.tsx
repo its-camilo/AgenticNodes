@@ -1,4 +1,13 @@
+import {
+  ComposableMap,
+  Geographies,
+  Geography,
+  Marker,
+  Line,
+} from "react-simple-maps";
 import { PHASES } from "@/types/simulation";
+
+const GEO_URL = "https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json";
 
 const PHASE_LABELS: Record<string, string> = {
   generating_world: "Analyzing demand...",
@@ -8,13 +17,38 @@ const PHASE_LABELS: Record<string, string> = {
   complete: "Complete",
 };
 
+export interface EvaluatedRoute {
+  from: [number, number]; // [lng, lat]
+  to: [number, number]; // [lng, lat]
+  label?: string;
+  status?: string;
+}
+
 interface LoadingViewProps {
   currentPhase: string;
   phaseMessage: string;
+  evaluatedRoutes?: EvaluatedRoute[];
 }
 
-const LoadingView = ({ currentPhase, phaseMessage }: LoadingViewProps) => {
+const LoadingView = ({ currentPhase, phaseMessage, evaluatedRoutes = [] }: LoadingViewProps) => {
   const phaseIndex = PHASES.indexOf(currentPhase as typeof PHASES[number]);
+
+  // Derive unique origin and destination markers from evaluated routes
+  const originsMap = new Map<string, [number, number]>();
+  const destinationsMap = new Map<string, [number, number]>();
+  evaluatedRoutes.forEach((r) => {
+    originsMap.set(`${r.from[0]},${r.from[1]}`, r.from);
+    destinationsMap.set(`${r.to[0]},${r.to[1]}`, r.to);
+  });
+  const origins = Array.from(originsMap.values());
+  const destinations = Array.from(destinationsMap.values());
+
+  // Place ships at the midpoint of each route
+  const shipPositions = evaluatedRoutes.map((r) => {
+    const midLng = (r.from[0] + r.to[0]) / 2;
+    const midLat = (r.from[1] + r.to[1]) / 2;
+    return [midLng, midLat] as [number, number];
+  });
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center p-4 gap-8">
@@ -48,58 +82,73 @@ const LoadingView = ({ currentPhase, phaseMessage }: LoadingViewProps) => {
         ))}
       </div>
 
-      {/* Animated SVG World Map */}
-      <div className="w-full max-w-3xl">
-        <svg viewBox="0 0 800 400" className="w-full h-auto">
-          <rect width="800" height="400" fill="#0a1628" rx="12" />
-          {Array.from({ length: 9 }).map((_, i) => (
-            <line key={`h${i}`} x1="0" y1={i * 50} x2="800" y2={i * 50} stroke="#1a2540" strokeWidth="0.5" />
+      {/* React Simple Maps World Map */}
+      <div className="w-full max-w-3xl rounded-lg border bg-card overflow-hidden relative" style={{ height: 420 }}>
+        <ComposableMap
+          projectionConfig={{ scale: 140, center: [0, 20] }}
+          width={800}
+          height={450}
+          style={{ width: "100%", height: "100%" }}
+        >
+          <Geographies geography={GEO_URL}>
+            {({ geographies }) =>
+              geographies.map((geo) => (
+                <Geography
+                  key={geo.rsmKey}
+                  geography={geo}
+                  fill="#1e293b"
+                  stroke="#334155"
+                  strokeWidth={0.5}
+                  style={{
+                    default: { outline: "none" },
+                    hover: { outline: "none" },
+                    pressed: { outline: "none" },
+                  }}
+                />
+              ))
+            }
+          </Geographies>
+
+          {/* Evaluated route lines */}
+          {evaluatedRoutes.map((r, i) => (
+            <Line
+              key={`eval-route-${i}`}
+              from={r.from}
+              to={r.to}
+              stroke="#c9a832"
+              strokeWidth={1.5}
+              strokeLinecap="round"
+              strokeDasharray="6 4"
+            />
           ))}
-          {Array.from({ length: 17 }).map((_, i) => (
-            <line key={`v${i}`} x1={i * 50} y1="0" x2={i * 50} y2="400" stroke="#1a2540" strokeWidth="0.5" />
+
+          {/* Destination markers (suppliers) */}
+          {destinations.map((coords, i) => (
+            <Marker key={`dest-${i}`} coordinates={coords}>
+              <circle r={5} fill="#2d8a4e" stroke="#fff" strokeWidth={1.5} />
+            </Marker>
           ))}
 
-          {/* Simplified continents */}
-          <path d="M120,80 L180,60 L220,80 L230,120 L210,160 L200,200 L180,220 L150,200 L130,170 L110,130 Z" fill="#1a2540" stroke="#2a3a5c" strokeWidth="0.5" opacity="0.6" />
-          <path d="M190,230 L220,220 L240,250 L250,300 L230,340 L210,360 L190,340 L180,300 L175,260 Z" fill="#1a2540" stroke="#2a3a5c" strokeWidth="0.5" opacity="0.6" />
-          <path d="M370,70 L420,60 L440,80 L430,110 L410,130 L380,120 L360,100 Z" fill="#1a2540" stroke="#2a3a5c" strokeWidth="0.5" opacity="0.6" />
-          <path d="M380,150 L430,140 L450,180 L460,230 L440,290 L420,320 L390,300 L370,260 L360,200 Z" fill="#1a2540" stroke="#2a3a5c" strokeWidth="0.5" opacity="0.6" />
-          <path d="M450,60 L550,50 L650,70 L700,100 L680,140 L640,160 L580,170 L520,150 L480,130 L450,100 Z" fill="#1a2540" stroke="#2a3a5c" strokeWidth="0.5" opacity="0.6" />
-          <path d="M620,260 L680,250 L710,280 L700,310 L660,320 L630,300 Z" fill="#1a2540" stroke="#2a3a5c" strokeWidth="0.5" opacity="0.6" />
+          {/* Origin marker (buyer) */}
+          {origins.map((coords, i) => (
+            <Marker key={`origin-${i}`} coordinates={coords}>
+              <circle r={7} fill="#38bdf8" stroke="#fff" strokeWidth={2} />
+            </Marker>
+          ))}
 
-          {/* Animated route lines */}
-          {phaseIndex >= 2 && (
-            <>
-              <line x1="200" y1="150" x2="600" y2="130" stroke="hsl(130, 50%, 45%)" strokeWidth="2" strokeDasharray="6 4" className="animate-dash" opacity="0.8" />
-              <line x1="200" y1="150" x2="420" y2="200" stroke="hsl(45, 80%, 55%)" strokeWidth="2" strokeDasharray="6 4" className="animate-dash" opacity="0.8" />
-              <line x1="600" y1="130" x2="420" y2="200" stroke="hsl(0, 70%, 50%)" strokeWidth="2" strokeDasharray="6 4" className="animate-dash" opacity="0.6" />
-            </>
-          )}
-
-          {/* Buyer pin */}
-          <circle cx="200" cy="150" r="6" fill="hsl(190, 70%, 50%)" className="animate-pulse-glow" />
-          <circle cx="200" cy="150" r="3" fill="hsl(200, 20%, 92%)" />
-
-          {/* Supplier pins */}
-          {phaseIndex >= 1 && (
-            <>
-              <circle cx="600" cy="130" r="5" fill="hsl(130, 50%, 45%)" opacity="0.9" />
-              <circle cx="600" cy="130" r="2.5" fill="hsl(200, 20%, 92%)" />
-              <circle cx="650" cy="100" r="5" fill="hsl(130, 50%, 45%)" opacity="0.9" />
-              <circle cx="650" cy="100" r="2.5" fill="hsl(200, 20%, 92%)" />
-              <circle cx="220" cy="280" r="5" fill="hsl(130, 50%, 45%)" opacity="0.9" />
-              <circle cx="220" cy="280" r="2.5" fill="hsl(200, 20%, 92%)" />
-            </>
-          )}
-
-          {/* Ships */}
-          {phaseIndex >= 2 && (
-            <>
-              <text x="400" y="135" fontSize="16" textAnchor="middle" className="animate-pulse">🚢</text>
-              <text x="310" y="180" fontSize="16" textAnchor="middle" className="animate-pulse">🚢</text>
-            </>
-          )}
-        </svg>
+          {/* Ship markers on route midpoints */}
+          {shipPositions.map((coords, i) => (
+            <Marker key={`ship-${i}`} coordinates={coords}>
+              <text
+                textAnchor="middle"
+                dominantBaseline="central"
+                fontSize={14}
+              >
+                🚢
+              </text>
+            </Marker>
+          ))}
+        </ComposableMap>
       </div>
     </div>
   );
