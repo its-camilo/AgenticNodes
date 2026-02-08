@@ -114,6 +114,7 @@ const NegotiationChat = ({ traceId, suppliers, ports, onTermsUpdate }: Negotiati
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && sendMessage()}
             placeholder="Type your negotiation message..."
+            maxLength={1000}
             className="h-9 text-xs bg-secondary/50"
           />
           <Button

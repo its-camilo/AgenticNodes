@@ -2,6 +2,8 @@ export interface SimulationRequest {
   intent: string;
   buyer_location: string;
   simulate_disruptions: boolean;
+  disruptions?: string[];
+  constraints?: Record<string, unknown>;
 }
 
 export interface PhaseEvent {
@@ -206,6 +208,7 @@ export const PHASES = [
   "generating_world",
   "discovering_suppliers",
   "planning_routes",
+  "negotiating",
   "awaiting_negotiation",
   "complete",
 ] as const;

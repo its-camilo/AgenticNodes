@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { RotateCcw, SkipForward } from "lucide-react";
@@ -7,20 +7,28 @@ import RouteMap from "@/components/RouteMap";
 import NegotiationTerms from "@/components/NegotiationTerms";
 import NegotiationChat from "@/components/NegotiationChat";
 import SummaryDisplay from "@/components/SummaryDisplay";
-import type { SimulationResponse, NegotiationTerm, Port } from "@/types/simulation";
+import type { SimulationResponse, NegotiationTerm, NegotiationReadyPayload, Port } from "@/types/simulation";
 
 interface ResultsDashboardProps {
   data: SimulationResponse;
   onReset: () => void;
   negotiationMode?: boolean;
   onFinalizeNegotiation?: () => void;
+  negotiationReadyData?: NegotiationReadyPayload | null;
 }
 
-const ResultsDashboard = ({ data, onReset, negotiationMode = false, onFinalizeNegotiation }: ResultsDashboardProps) => {
+const ResultsDashboard = ({ data, onReset, negotiationMode = false, onFinalizeNegotiation, negotiationReadyData }: ResultsDashboardProps) => {
   const { report, summary, trace_id } = data;
-  const [terms, setTerms] = useState(report.negotiation.terms);
-  const [totalCost, setTotalCost] = useState(report.negotiation.total_cost_estimate);
+  const [terms, setTerms] = useState(report.negotiation?.terms ?? []);
+  const [totalCost, setTotalCost] = useState(report.negotiation?.total_cost_estimate ?? 0);
   const [showBanner, setShowBanner] = useState(negotiationMode);
+
+  // Sync showBanner when negotiationMode prop changes
+  useEffect(() => {
+    if (negotiationMode) {
+      setShowBanner(true);
+    }
+  }, [negotiationMode]);
 
   const handleTermsUpdate = (updatedTerms: NegotiationTerm[]) => {
     setTerms(updatedTerms);
@@ -34,7 +42,7 @@ const ResultsDashboard = ({ data, onReset, negotiationMode = false, onFinalizeNe
   };
 
   // Collect all ports
-  const allPorts: Port[] = report.world_context.countries.flatMap((c) => c.ports);
+  const allPorts: Port[] = report.world_context?.countries?.flatMap((c) => c.ports ?? []) ?? [];
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -79,7 +87,7 @@ const ResultsDashboard = ({ data, onReset, negotiationMode = false, onFinalizeNe
             </h3>
             <ScrollArea className="h-[calc(100vh-220px)] lg:h-[500px]">
               <div className="space-y-3 pr-2">
-                {report.discovery_paths.map((s, i) => (
+                {(report.discovery_paths ?? []).map((s, i) => (
                   <SupplierCard key={i} supplier={s} />
                 ))}
               </div>
