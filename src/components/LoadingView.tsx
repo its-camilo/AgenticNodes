@@ -33,11 +33,15 @@ interface LoadingViewProps {
 const LoadingView = ({ currentPhase, phaseMessage, evaluatedRoutes = [] }: LoadingViewProps) => {
   const phaseIndex = PHASES.indexOf(currentPhase as typeof PHASES[number]);
 
-  // Derive origin and destination markers from evaluated routes
-  const origins = evaluatedRoutes.length > 0
-    ? [evaluatedRoutes[0].from]
-    : [];
-  const destinations = evaluatedRoutes.map((r) => r.to);
+  // Derive unique origin and destination markers from evaluated routes
+  const originsMap = new Map<string, [number, number]>();
+  const destinationsMap = new Map<string, [number, number]>();
+  evaluatedRoutes.forEach((r) => {
+    originsMap.set(`${r.from[0]},${r.from[1]}`, r.from);
+    destinationsMap.set(`${r.to[0]},${r.to[1]}`, r.to);
+  });
+  const origins = Array.from(originsMap.values());
+  const destinations = Array.from(destinationsMap.values());
 
   // Place ships at the midpoint of each route
   const shipPositions = evaluatedRoutes.map((r) => {

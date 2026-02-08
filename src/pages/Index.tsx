@@ -44,7 +44,13 @@ const Index = () => {
 
           // Extract evaluated routes if the phase event carries them
           if (data.evaluated_routes) {
-            setEvaluatedRoutes((prev) => [...prev, ...data.evaluated_routes]);
+            setEvaluatedRoutes((prev) => {
+              const existing = new Set(prev.map((r) => `${r.from[0]},${r.from[1]}-${r.to[0]},${r.to[1]}`));
+              const newRoutes = (data.evaluated_routes as EvaluatedRoute[]).filter(
+                (r) => !existing.has(`${r.from[0]},${r.from[1]}-${r.to[0]},${r.to[1]}`)
+              );
+              return [...prev, ...newRoutes];
+            });
           }
         } catch {}
       });
@@ -53,15 +59,20 @@ const Index = () => {
         try {
           const data = JSON.parse(event.data);
           if (data.from && data.to) {
-            setEvaluatedRoutes((prev) => [
-              ...prev,
-              {
-                from: [data.from.lng, data.from.lat] as [number, number],
-                to: [data.to.lng, data.to.lat] as [number, number],
-                label: data.label || "",
-                status: data.status || "evaluating",
-              },
-            ]);
+            setEvaluatedRoutes((prev) => {
+              const key = `${data.from.lng},${data.from.lat}-${data.to.lng},${data.to.lat}`;
+              const existing = new Set(prev.map((r) => `${r.from[0]},${r.from[1]}-${r.to[0]},${r.to[1]}`));
+              if (existing.has(key)) return prev;
+              return [
+                ...prev,
+                {
+                  from: [data.from.lng, data.from.lat] as [number, number],
+                  to: [data.to.lng, data.to.lat] as [number, number],
+                  label: data.label || "",
+                  status: data.status || "evaluating",
+                },
+              ];
+            });
           }
         } catch {}
       });
