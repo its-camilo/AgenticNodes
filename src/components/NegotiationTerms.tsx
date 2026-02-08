@@ -34,7 +34,7 @@ const NegotiationTerms = ({ terms, totalCost, executionPlan }: NegotiationTermsP
             {(terms ?? []).map((t, i) => (
               <TableRow key={i}>
                 <TableCell className="text-xs font-medium">{t.material}</TableCell>
-                <TableCell className="text-xs">{t.supplier_id}</TableCell>
+                <TableCell className="text-xs">{t.supplier_name || t.supplier_id}</TableCell>
                 <TableCell className="text-xs">{t.qty.toLocaleString()}</TableCell>
                 <TableCell className="text-xs">
                   {t.currency} {t.unit_price_est.toFixed(2)}
@@ -62,7 +62,7 @@ const NegotiationTerms = ({ terms, totalCost, executionPlan }: NegotiationTermsP
             {executionPlan.timeline_days}d
           </p>
           <p className="text-xs text-muted-foreground">
-            Risk: {(executionPlan.risk_score * 100).toFixed(0)}%
+            Risk: {executionPlan.risk_score > 1 ? Math.round(executionPlan.risk_score) : (executionPlan.risk_score * 100).toFixed(0)}%
           </p>
         </div>
       </div>
@@ -74,7 +74,7 @@ const NegotiationTerms = ({ terms, totalCost, executionPlan }: NegotiationTermsP
             {executionPlan.steps.map((s, i) => (
               <li key={i} className="text-xs text-muted-foreground flex gap-2">
                 <span className="text-primary font-medium shrink-0">{i + 1}.</span>
-                <span>{s.step}{s.description ? ` — ${s.description}` : ""}</span>
+                <span>{s.description || s.step}</span>
               </li>
             ))}
           </ol>
