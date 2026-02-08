@@ -6,12 +6,14 @@ import IntentInput from "@/components/IntentInput";
 import LoadingView from "@/components/LoadingView";
 import ResultsDashboard from "@/components/ResultsDashboard";
 import type { AppView, SimulationResponse } from "@/types/simulation";
+import type { EvaluatedRoute } from "@/components/LoadingView";
 
 const Index = () => {
   const [view, setView] = useState<AppView>("input");
   const [currentPhase, setCurrentPhase] = useState("");
   const [phaseMessage, setPhaseMessage] = useState("");
   const [result, setResult] = useState<SimulationResponse | null>(null);
+  const [evaluatedRoutes, setEvaluatedRoutes] = useState<EvaluatedRoute[]>([]);
   const sseRef = useRef<EventSourcePolyfill | null>(null);
 
   const closeSse = useCallback(() => {
@@ -26,6 +28,7 @@ const Index = () => {
       setView("loading");
       setCurrentPhase("");
       setPhaseMessage("Connecting...");
+      setEvaluatedRoutes([]);
 
       // 1. Connect SSE FIRST
       const sse = new EventSourcePolyfill(getEventsUrl(), {
@@ -38,6 +41,28 @@ const Index = () => {
           const data = JSON.parse(event.data);
           setCurrentPhase(data.phase);
           setPhaseMessage(data.message);
+
+          // Extract evaluated routes if the phase event carries them
+          if (data.evaluated_routes) {
+            setEvaluatedRoutes((prev) => [...prev, ...data.evaluated_routes]);
+          }
+        } catch {}
+      });
+
+      sse.addEventListener("route_eval", (event: any) => {
+        try {
+          const data = JSON.parse(event.data);
+          if (data.from && data.to) {
+            setEvaluatedRoutes((prev) => [
+              ...prev,
+              {
+                from: [data.from.lng, data.from.lat] as [number, number],
+                to: [data.to.lng, data.to.lat] as [number, number],
+                label: data.label || "",
+                status: data.status || "evaluating",
+              },
+            ]);
+          }
         } catch {}
       });
 
@@ -77,10 +102,17 @@ const Index = () => {
     setResult(null);
     setCurrentPhase("");
     setPhaseMessage("");
+    setEvaluatedRoutes([]);
   }, []);
 
   if (view === "loading") {
-    return <LoadingView currentPhase={currentPhase} phaseMessage={phaseMessage} />;
+    return (
+      <LoadingView
+        currentPhase={currentPhase}
+        phaseMessage={phaseMessage}
+        evaluatedRoutes={evaluatedRoutes}
+      />
+    );
   }
 
   if (view === "results" && result) {
