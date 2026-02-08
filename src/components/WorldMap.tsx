@@ -98,7 +98,7 @@ const WorldMap = ({ report }: WorldMapProps) => {
           pins.push({
             id: `supplier-${i}`,
             label: s.identity,
-            coords: [s.lng!, s.lat!],
+            coords: [s.lng, s.lat],
             type: "supplier",
           });
         }
@@ -128,7 +128,7 @@ const WorldMap = ({ report }: WorldMapProps) => {
           {({ geographies }) =>
             geographies.map((geo) => (
               <Geography
-                key={geo.rpiKey}
+                key={geo.rsmKey}
                 geography={geo}
                 fill="#1e293b"
                 stroke="#334155"
