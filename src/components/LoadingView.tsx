@@ -113,7 +113,7 @@ const LoadingView = ({ currentPhase, phaseMessage, evaluatedRoutes = [] }: Loadi
       </div>
 
       {/* 3D Globe */}
-      <div className="w-full max-w-3xl rounded-lg border bg-card overflow-hidden relative" style={{ height: 420 }}>
+      <div className="w-full max-w-3xl rounded-lg border bg-card overflow-hidden relative flex justify-center" style={{ height: 420 }}>
         <Globe
           ref={globeRef}
           width={800}

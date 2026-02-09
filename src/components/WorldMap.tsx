@@ -161,7 +161,7 @@ const WorldMap = ({ report }: WorldMapProps) => {
   }
 
   return (
-    <div className="rounded-lg border bg-card overflow-hidden relative" style={{ height: 500 }}>
+    <div className="rounded-lg border bg-card overflow-hidden relative flex justify-center" style={{ height: 500 }}>
       <Globe
         ref={globeRef}
         width={600}
