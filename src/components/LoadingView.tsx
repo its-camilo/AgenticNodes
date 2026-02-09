@@ -24,6 +24,8 @@ interface LoadingViewProps {
   evaluatedRoutes?: EvaluatedRoute[];
 }
 
+const GLOBE_HEIGHT = 420;
+
 // Default demo arcs while waiting for real data
 const DEMO_ARCS = [
   { startLat: 40.7, startLng: -74.0, endLat: 51.5, endLng: -0.1, color: "#c9a832" },
@@ -36,8 +38,21 @@ const DEMO_ARCS = [
 
 const LoadingView = ({ currentPhase, phaseMessage, evaluatedRoutes = [] }: LoadingViewProps) => {
   const globeRef = useRef<GlobeMethods>();
+  const containerRef = useRef<HTMLDivElement>(null);
   const phaseIndex = PHASES.indexOf(currentPhase as typeof PHASES[number]);
   const [isGlobeReady, setIsGlobeReady] = useState(false);
+  const [globeWidth, setGlobeWidth] = useState(0);
+
+  // Measure container width and update globe size
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver(([entry]) => {
+      setGlobeWidth(entry.contentRect.width);
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
 
   // Build arcs from evaluated routes or use demo arcs
   const arcs = useMemo(() => {
@@ -113,36 +128,38 @@ const LoadingView = ({ currentPhase, phaseMessage, evaluatedRoutes = [] }: Loadi
       </div>
 
       {/* 3D Globe */}
-      <div className="w-full max-w-3xl rounded-lg border bg-card overflow-hidden relative flex justify-center" style={{ height: 420 }}>
-        <Globe
-          ref={globeRef}
-          width={800}
-          height={420}
-          backgroundColor="rgba(0,0,0,0)"
-          globeImageUrl="//unpkg.com/three-globe/example/img/earth-night.jpg"
-          showAtmosphere={true}
-          atmosphereColor="#38bdf8"
-          atmosphereAltitude={0.15}
-          onGlobeReady={() => setIsGlobeReady(true)}
-          // Points
-          pointsData={points}
-          pointLat="lat"
-          pointLng="lng"
-          pointColor="color"
-          pointRadius={0.5}
-          pointAltitude={0.01}
-          // Arcs
-          arcsData={arcs}
-          arcStartLat="startLat"
-          arcStartLng="startLng"
-          arcEndLat="endLat"
-          arcEndLng="endLng"
-          arcColor="color"
-          arcStroke={0.5}
-          arcDashLength={0.4}
-          arcDashGap={0.2}
-          arcDashAnimateTime={2000}
-        />
+      <div ref={containerRef} className="w-full max-w-3xl rounded-lg border bg-card overflow-hidden relative" style={{ height: GLOBE_HEIGHT }}>
+        {globeWidth > 0 && (
+          <Globe
+            ref={globeRef}
+            width={globeWidth}
+            height={GLOBE_HEIGHT}
+            backgroundColor="rgba(0,0,0,0)"
+            globeImageUrl="//unpkg.com/three-globe/example/img/earth-night.jpg"
+            showAtmosphere={true}
+            atmosphereColor="#38bdf8"
+            atmosphereAltitude={0.15}
+            onGlobeReady={() => setIsGlobeReady(true)}
+            // Points
+            pointsData={points}
+            pointLat="lat"
+            pointLng="lng"
+            pointColor="color"
+            pointRadius={0.5}
+            pointAltitude={0.01}
+            // Arcs
+            arcsData={arcs}
+            arcStartLat="startLat"
+            arcStartLng="startLng"
+            arcEndLat="endLat"
+            arcEndLng="endLng"
+            arcColor="color"
+            arcStroke={0.5}
+            arcDashLength={0.4}
+            arcDashGap={0.2}
+            arcDashAnimateTime={2000}
+          />
+        )}
       </div>
     </div>
   );
