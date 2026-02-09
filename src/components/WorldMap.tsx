@@ -1,4 +1,4 @@
-import { useMemo, useRef, useEffect } from "react";
+import { useMemo, useRef, useEffect, useState } from "react";
 import Globe from "react-globe.gl";
 import type { GlobeMethods } from "react-globe.gl";
 import type { SimulationReport } from "@/types/simulation";
@@ -25,6 +25,8 @@ interface PointData {
   type: "buyer" | "supplier" | "port";
 }
 
+const GLOBE_HEIGHT = 500;
+
 const riskColor = (level: string) =>
   level === "low"
     ? "#2d8a4e"
@@ -34,7 +36,20 @@ const riskColor = (level: string) =>
 
 const WorldMap = ({ report }: WorldMapProps) => {
   const globeRef = useRef<GlobeMethods>();
+  const containerRef = useRef<HTMLDivElement>(null);
   const mapData = report.map_data;
+  const [globeWidth, setGlobeWidth] = useState(0);
+
+  // Measure container width and update globe size
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver(([entry]) => {
+      setGlobeWidth(entry.contentRect.width);
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
 
   const { points, arcs } = useMemo(() => {
     const points: PointData[] = [];
@@ -161,37 +176,39 @@ const WorldMap = ({ report }: WorldMapProps) => {
   }
 
   return (
-    <div className="rounded-lg border bg-card overflow-hidden relative flex justify-center" style={{ height: 500 }}>
-      <Globe
-        ref={globeRef}
-        width={600}
-        height={500}
-        backgroundColor="rgba(0,0,0,0)"
-        globeImageUrl="//unpkg.com/three-globe/example/img/earth-night.jpg"
-        showAtmosphere={true}
-        atmosphereColor="#38bdf8"
-        atmosphereAltitude={0.15}
-        // Points
-        pointsData={points}
-        pointLat="lat"
-        pointLng="lng"
-        pointColor="color"
-        pointRadius="size"
-        pointAltitude={0.01}
-        pointLabel="label"
-        // Arcs
-        arcsData={arcs}
-        arcStartLat="startLat"
-        arcStartLng="startLng"
-        arcEndLat="endLat"
-        arcEndLng="endLng"
-        arcColor="color"
-        arcStroke={0.5}
-        arcDashLength={0.4}
-        arcDashGap={0.2}
-        arcDashAnimateTime={1500}
-        arcLabel="label"
-      />
+    <div ref={containerRef} className="rounded-lg border bg-card overflow-hidden relative" style={{ height: GLOBE_HEIGHT }}>
+      {globeWidth > 0 && (
+        <Globe
+          ref={globeRef}
+          width={globeWidth}
+          height={GLOBE_HEIGHT}
+          backgroundColor="rgba(0,0,0,0)"
+          globeImageUrl="//unpkg.com/three-globe/example/img/earth-night.jpg"
+          showAtmosphere={true}
+          atmosphereColor="#38bdf8"
+          atmosphereAltitude={0.15}
+          // Points
+          pointsData={points}
+          pointLat="lat"
+          pointLng="lng"
+          pointColor="color"
+          pointRadius="size"
+          pointAltitude={0.01}
+          pointLabel="label"
+          // Arcs
+          arcsData={arcs}
+          arcStartLat="startLat"
+          arcStartLng="startLng"
+          arcEndLat="endLat"
+          arcEndLng="endLng"
+          arcColor="color"
+          arcStroke={0.5}
+          arcDashLength={0.4}
+          arcDashGap={0.2}
+          arcDashAnimateTime={1500}
+          arcLabel="label"
+        />
+      )}
 
       {/* Legend */}
       <div className="absolute bottom-2 left-2 z-10 bg-card/90 rounded p-2 text-[10px] space-y-1 border pointer-events-none">
